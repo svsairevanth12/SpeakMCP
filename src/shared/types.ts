@@ -25,4 +25,7 @@ export type Config = {
   transcriptPostProcessingEnabled?: boolean
   transcriptPostProcessingProviderId?: CHAT_PROVIDER_ID
   transcriptPostProcessingPrompt?: string
+  transcriptPostProcessingOpenaiModel?: string
+  transcriptPostProcessingGroqModel?: string
+  transcriptPostProcessingGeminiModel?: string
 }

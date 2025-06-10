@@ -1,4 +1,3 @@
-import { dialog } from "electron"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 import { configStore } from "./config"
 
@@ -23,7 +22,8 @@ export async function postProcessTranscript(transcript: string) {
     if (!config.geminiApiKey) throw new Error("Gemini API key is required")
 
     const gai = new GoogleGenerativeAI(config.geminiApiKey)
-    const gModel = gai.getGenerativeModel({ model: "gemini-1.5-flash-002" })
+    const geminiModel = config.transcriptPostProcessingGeminiModel || "gemini-1.5-flash-002"
+    const gModel = gai.getGenerativeModel({ model: geminiModel })
 
     const result = await gModel.generateContent([prompt], {
       baseUrl: config.geminiBaseUrl,
@@ -45,7 +45,9 @@ export async function postProcessTranscript(transcript: string) {
     body: JSON.stringify({
       temperature: 0,
       model:
-        chatProviderId === "groq" ? "llama-3.1-70b-versatile" : "gpt-4o-mini",
+        chatProviderId === "groq"
+          ? config.transcriptPostProcessingGroqModel || "gemma2-9b-it"
+          : config.transcriptPostProcessingOpenaiModel || "gpt-4o-mini",
       messages: [
         {
           role: "system",
