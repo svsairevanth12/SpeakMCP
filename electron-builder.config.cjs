@@ -34,6 +34,7 @@ module.exports = {
     binaries: [`resources/bin/whispo-rs${process.platform === 'darwin' ? '' : '.exe'}`],
     artifactName: "${productName}-${version}-${arch}.${ext}",
     entitlementsInherit: "build/entitlements.mac.plist",
+    identity: process.env.CSC_NAME || "Apple Development",
     extendInfo: [
       {
         NSCameraUsageDescription:

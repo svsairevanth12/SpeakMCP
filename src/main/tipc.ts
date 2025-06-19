@@ -152,6 +152,7 @@ export const router = {
       duration: number
     }>()
     .action(async ({ input }) => {
+
       fs.mkdirSync(recordingsFolder, { recursive: true })
 
       const config = configStore.get()
@@ -221,7 +222,12 @@ export const router = {
       // paste
       clipboard.writeText(transcript)
       if (isAccessibilityGranted()) {
-        await writeText(transcript)
+        try {
+          await writeText(transcript)
+        } catch (error) {
+          console.error(`Failed to write text:`, error)
+          // Don't throw here, just log the error so the recording still gets saved
+        }
       }
     }),
 

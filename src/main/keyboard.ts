@@ -7,7 +7,7 @@ import {
 import { systemPreferences } from "electron"
 import { configStore } from "./config"
 import { state } from "./state"
-import { spawn } from "child_process"
+import { spawn, ChildProcess } from "child_process"
 import path from "path"
 
 const rdevPath = path
@@ -29,14 +29,16 @@ type RdevEvent = {
 
 export const writeText = (text: string) => {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(rdevPath, ["write", text])
+    const child: ChildProcess = spawn(rdevPath, ["write", text])
 
-    child.stdout.on("data", (data) => {
-      console.log(`stdout: ${data}`)
+    let stderr = ""
+
+    child.stderr?.on("data", (data) => {
+      stderr += data.toString()
     })
 
-    child.stderr.on("data", (data) => {
-      console.error(`stderr: ${data}`)
+    child.on("error", (error) => {
+      reject(new Error(`Failed to spawn process: ${error.message}`))
     })
 
     child.on("close", (code) => {
@@ -47,7 +49,8 @@ export const writeText = (text: string) => {
       if (code === 0) {
         resolve()
       } else {
-        reject(new Error(`child process exited with code ${code}`))
+        const errorMessage = `child process exited with code ${code}${stderr.trim() ? `. stderr: ${stderr.trim()}` : ""}`
+        reject(new Error(errorMessage))
       }
     })
   })

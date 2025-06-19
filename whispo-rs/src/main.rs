@@ -10,6 +10,8 @@ struct RdevEvent {
     data: String,
 }
 
+
+
 fn deal_event_to_json(event: Event) -> RdevEvent {
     let mut jsonify_event = RdevEvent {
         event_type: "".to_string(),
@@ -67,13 +69,24 @@ fn deal_event_to_json(event: Event) -> RdevEvent {
     jsonify_event
 }
 
-fn write_text(text: &str) {
+fn write_text(text: &str) -> Result<(), Box<dyn std::error::Error>> {
     use enigo::{Enigo, Keyboard, Settings};
 
-    let mut enigo = Enigo::new(&Settings::default()).unwrap();
+    let mut enigo = match Enigo::new(&Settings::default()) {
+        Ok(enigo) => enigo,
+        Err(e) => {
+            eprintln!("Failed to create Enigo instance: {}", e);
+            return Err(Box::new(e));
+        }
+    };
 
-    // write text
-    enigo.text(text).unwrap();
+    match enigo.text(text) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            eprintln!("Failed to write text: {}", e);
+            Err(Box::new(e))
+        }
+    }
 }
 
 fn main() {
@@ -88,12 +101,26 @@ fn main() {
 
             _ => {}
         }) {
-            println!("!error: {:?}", error);
+            eprintln!("!error: {:?}", error);
+            std::process::exit(1);
         }
-    }
-
-    if args.len() > 2 && args[1] == "write" {
+    } else if args.len() > 2 && args[1] == "write" {
         let text = args[2].clone();
-        write_text(text.as_str());
+
+        match write_text(text.as_str()) {
+            Ok(_) => {
+                std::process::exit(0);
+            },
+            Err(e) => {
+                eprintln!("Write command failed: {}", e);
+                std::process::exit(101);
+            }
+        }
+    } else {
+        eprintln!("Usage: {} [listen|write <text>]", args.get(0).unwrap_or(&"whispo-rs".to_string()));
+        eprintln!("Commands:");
+        eprintln!("  listen       - Listen for keyboard events");
+        eprintln!("  write <text> - Write text using accessibility API");
+        std::process::exit(1);
     }
 }
