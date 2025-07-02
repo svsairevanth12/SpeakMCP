@@ -26,7 +26,8 @@
     "test-lightning-whisper": "node ./scripts/test-lightning-whisper-integration.js"
   },
   "dependencies": {
-    "@egoist/electron-panel-window": "^8.0.3"
+    "@egoist/electron-panel-window": "^8.0.3",
+    "@modelcontextprotocol/sdk": "^1.13.3"
   },
   "devDependencies": {
     "@radix-ui/react-switch": "^1.1.1",
