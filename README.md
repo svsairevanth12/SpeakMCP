@@ -1,29 +1,300 @@
 # Whispo
 
-AI-powered dictation tool.
+🎤 **AI-powered dictation tool** - Transform your voice into text with advanced speech recognition and intelligent post-processing.
 
-## Download
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](./LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-31.0.2-47848f.svg)](https://electronjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-18.3.1-61dafb.svg)](https://reactjs.org/)
 
-Currently building for macOS (Apple Silicon) and Windows x64.
+## 🚀 Quick Start
 
-[Releases](https://github.com/egoist/whispo/releases/latest)
+### Download
 
-## Preview
+Currently building for **macOS (Apple Silicon)** and **Windows x64**.
 
+**[📥 Download Latest Release](https://github.com/aj47/whispo/releases/latest)**
+
+### Usage
+
+1. **Hold `Ctrl`** key to start recording your voice
+2. **Release `Ctrl`** to stop recording and transcribe
+3. Text is automatically inserted into your active application
+4. Configure providers and settings in the app preferences
+
+## 🎬 Preview
 
 https://github.com/user-attachments/assets/2344a817-f36c-42b0-9ebc-cdd6e926b7a0
 
+## ✨ Features
 
-## Features
+### 🎯 Core Functionality
+- **Voice-to-Text**: Hold `Ctrl` key to record, release to transcribe
+- **Universal Integration**: Works with any application that supports text input
+- **Local Storage**: All data stored securely on your machine
+- **Real-time Feedback**: Visual audio waveform during recording
+- **Smart Shortcuts**: Configurable keyboard shortcuts (`Ctrl+Hold` or `Ctrl+/`)
 
-- Hold `Ctrl` key to record your voice, release to transcribe it.
-- Automatically insert the transcript into the application you are using.
-- Works with any application that supports text input.
-- Data is stored locally on your machine.
-- Transcrbing with OpenAI Whisper (provided by OpenAI or Groq).
-- Support custom API URL so you can use your own API to transcribe.
-- Supports post-processing your transcript with LLMs (e.g. OpenAI, Groq and Gemini).
+### 🤖 AI-Powered Transcription
+- **Multiple Providers**: OpenAI Whisper, Groq, and Lightning Whisper MLX
+- **Local Processing**: Lightning Whisper MLX for Mac Silicon (no internet required)
+- **Cloud APIs**: OpenAI and Groq for high-accuracy transcription
+- **Custom Endpoints**: Support for self-hosted APIs
+- **Fallback System**: Automatic fallback between providers
 
-## License
+### 🧠 Intelligent Post-Processing
+- **LLM Enhancement**: Improve transcripts with OpenAI, Groq, or Gemini
+- **Custom Prompts**: Configurable post-processing instructions
+- **Grammar Correction**: Fix punctuation, capitalization, and formatting
+- **Context Awareness**: Maintain conversation context and terminology
 
-[AGPL-3.0](./LICENSE)
+### 🔧 Advanced Configuration
+- **Provider Selection**: Choose between multiple STT and LLM providers
+- **Model Customization**: Select specific models for each provider
+- **Performance Tuning**: Batch size and quantization options for local models
+- **API Management**: Secure storage of API keys and custom base URLs
+
+## 🏗️ Architecture
+
+Whispo is built with a modern, multi-process architecture designed for performance and reliability:
+
+### System Overview
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Electron      │    │   Rust Binary    │    │  Python Script  │
+│   Main Process  │◄──►│   whispo-rs      │    │  Lightning      │
+│                 │    │   (Keyboard &    │    │  Whisper MLX    │
+│                 │    │   Text Input)    │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                                               │
+         ▼                                               ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   React UI      │    │   External APIs  │    │   System APIs   │
+│   (Renderer)    │    │   OpenAI, Groq   │    │   Accessibility │
+│                 │    │   Gemini         │    │   Microphone    │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### Key Components
+
+- **Main Process**: Handles system integration, keyboard events, and API communication
+- **Renderer Process**: React-based UI for settings and recording interface
+- **Rust Binary**: Low-level keyboard monitoring and text injection
+- **Python Integration**: Local ML model execution for Mac Silicon devices
+- **TIPC Communication**: Type-safe IPC between Electron processes
+
+## 🛠️ Development
+
+### Prerequisites
+
+- **Node.js** 18+ with **pnpm** package manager
+- **Rust** toolchain for building the native binary
+- **Python 3.7+** for Lightning Whisper MLX (Mac Silicon only)
+- **Xcode Command Line Tools** (macOS) or **Visual Studio Build Tools** (Windows)
+
+### Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/aj47/whispo.git
+   cd whispo
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Build Rust binary**
+   ```bash
+   pnpm build-rs
+   ```
+
+4. **Start development server**
+   ```bash
+   pnpm dev
+   ```
+
+### Build Commands
+
+```bash
+# Development
+pnpm dev                    # Start development server
+pnpm build                  # Build for production
+
+# Platform-specific builds
+pnpm build:mac             # Build for macOS
+pnpm build:win             # Build for Windows
+pnpm build:linux           # Build for Linux
+
+# Testing
+pnpm typecheck             # Type checking
+pnpm lint                  # ESLint
+pnpm test-lightning-whisper # Test Lightning Whisper integration
+```
+
+### Project Structure
+
+```
+whispo/
+├── src/
+│   ├── main/              # Electron main process
+│   │   ├── tipc.ts        # IPC router and API handlers
+│   │   ├── keyboard.ts    # Keyboard event handling
+│   │   ├── llm.ts         # LLM post-processing
+│   │   └── lightning-whisper-service.ts
+│   ├── renderer/src/      # React UI
+│   │   ├── pages/         # Application pages
+│   │   ├── components/    # Reusable components
+│   │   └── lib/           # Utilities and services
+│   ├── preload/           # Electron preload scripts
+│   └── shared/            # Shared types and constants
+├── whispo-rs/             # Rust binary for system integration
+├── resources/             # Static resources and Python scripts
+└── docs/                  # Documentation
+```
+
+## ⚙️ Configuration
+
+### Speech-to-Text Providers
+
+| Provider | Platform | Speed | Quality | Privacy | Cost |
+|----------|----------|-------|---------|---------|------|
+| **Lightning Whisper MLX** | Mac Silicon | ⚡ Very Fast | 🎯 High | 🔒 Local | 💰 Free |
+| **OpenAI Whisper** | All | 🐌 Moderate | 🎯 High | ☁️ Cloud | 💰 Paid |
+| **Groq** | All | ⚡ Fast | 🎯 High | ☁️ Cloud | 💰 Paid |
+
+### LLM Post-Processing
+
+Configure intelligent transcript enhancement:
+
+```typescript
+// Example post-processing prompt
+"Fix grammar, punctuation, and capitalization in this transcript: {transcript}"
+```
+
+**Supported LLM Providers:**
+- **OpenAI**: GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+- **Groq**: Gemma2-9b-it, Llama-3.1-70b, Mixtral-8x7b
+- **Google Gemini**: Gemini-1.5-flash, Gemini-1.5-pro
+
+### Keyboard Shortcuts
+
+- **Hold Ctrl**: Press and hold to record, release to transcribe
+- **Ctrl + /**: Press once to start, press again to stop
+- **Escape**: Cancel current recording
+
+### Lightning Whisper MLX (Mac Silicon)
+
+For Mac Silicon users, Lightning Whisper MLX provides ultra-fast local transcription:
+
+**Features:**
+- 🚀 10x faster than Whisper CPP
+- 🔒 Complete privacy (no internet required)
+- 🎛️ Configurable models and quantization
+- 📦 Automatic dependency management
+
+**Setup:**
+1. Select "Lightning Whisper MLX (Local)" in settings
+2. Click "Check Dependencies" to verify installation
+3. Use "Install" button if dependencies are missing
+4. Configure model, batch size, and quantization options
+
+**Recommended Settings:**
+- **Model**: `distil-medium.en` (balanced speed/quality)
+- **Batch Size**: `12` (optimal for most M1/M2/M3 chips)
+- **Quantization**: `4bit` (faster processing, minimal quality loss)
+
+## 🔧 API Configuration
+
+### OpenAI Setup
+
+1. Get API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Add to Whispo settings under "Providers" → "OpenAI"
+3. Optional: Configure custom base URL for self-hosted endpoints
+
+### Groq Setup
+
+1. Get API key from [Groq Console](https://console.groq.com/keys)
+2. Add to Whispo settings under "Providers" → "Groq"
+3. Configure STT prompt for better accuracy (optional)
+
+### Google Gemini Setup
+
+1. Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Add to Whispo settings under "Providers" → "Gemini"
+3. Select appropriate model for post-processing
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+**🎤 Microphone not working**
+- Grant microphone permissions in system settings
+- Check microphone access in Whispo settings
+- Restart application after granting permissions
+
+**⌨️ Text not inserting**
+- Enable accessibility permissions (macOS)
+- Run as administrator (Windows)
+- Check target application supports text input
+
+**🤖 Lightning Whisper MLX issues**
+- Ensure you're on Mac Silicon (M1/M2/M3)
+- Install Python dependencies: `pip install lightning-whisper-mlx`
+- Check Python 3 is available in PATH
+
+**🌐 API errors**
+- Verify API keys are correct
+- Check internet connection for cloud providers
+- Validate custom base URLs if configured
+
+### Performance Optimization
+
+**For Lightning Whisper MLX:**
+- Reduce batch size if experiencing memory issues
+- Use smaller models for faster processing
+- Enable quantization for speed improvements
+
+**For Cloud APIs:**
+- Use Groq for fastest cloud transcription
+- Configure custom prompts for better accuracy
+- Enable post-processing for grammar correction
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and test thoroughly
+4. Commit with conventional commits: `git commit -m "feat: add amazing feature"`
+5. Push to your fork: `git push origin feature/amazing-feature`
+6. Open a Pull Request
+
+### Areas for Contribution
+
+- 🐛 Bug fixes and stability improvements
+- ✨ New features and enhancements
+- 📚 Documentation improvements
+- 🧪 Test coverage expansion
+- 🌍 Internationalization support
+- 🎨 UI/UX improvements
+
+## 📄 License
+
+This project is licensed under the [AGPL-3.0 License](./LICENSE).
+
+## 🙏 Acknowledgments
+
+- [Lightning Whisper MLX](https://github.com/aj47/lightning-whisper-mlx) for ultra-fast local transcription
+- [OpenAI](https://openai.com/) for Whisper speech recognition
+- [Electron](https://electronjs.org/) for cross-platform desktop framework
+- [React](https://reactjs.org/) for the user interface
+- [Rust](https://rust-lang.org/) for system-level integration
+
+---
+
+**Made with ❤️ by the Whispo team**
