@@ -27,3 +27,5 @@ temp/
 *.pt
 *.pth
 *.ckpt
+
+.aider
