@@ -1,6 +1,8 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { configStore } from "./config"
+import { MCPConfig, MCPServerConfig } from "../shared/types"
+
 
 export interface MCPTool {
   name: string
@@ -27,15 +29,42 @@ export interface LLMToolCallResponse {
 }
 
 class MCPService {
-  private client: Client | null = null
-  private transport: StdioClientTransport | null = null
+  private clients: Map<string, Client> = new Map()
+  private transports: Map<string, StdioClientTransport> = new Map()
   private availableTools: MCPTool[] = []
 
   async initialize(): Promise<void> {
-    console.log("[MCP-DEBUG] 🔧 Initializing MCP service (in-memory implementation)...")
+    console.log("[MCP-DEBUG] 🚀 Initializing MCP service...")
 
-    // For now, we'll implement a simple in-memory tool registry
-    // In the future, this could connect to actual MCP servers
+    const config = configStore.get()
+    const mcpConfig = config.mcpConfig
+
+    if (!mcpConfig || !mcpConfig.mcpServers) {
+      console.log("[MCP-DEBUG] No MCP servers configured, using fallback tools")
+      this.initializeFallbackTools()
+      return
+    }
+
+    // Initialize configured MCP servers
+    for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
+      if (serverConfig.disabled) {
+        console.log(`[MCP-DEBUG] Skipping disabled server: ${serverName}`)
+        continue
+      }
+
+      try {
+        await this.initializeServer(serverName, serverConfig)
+      } catch (error) {
+        console.error(`[MCP-DEBUG] Failed to initialize server ${serverName}:`, error)
+      }
+    }
+
+    console.log(`[MCP-DEBUG] ✅ MCP service initialized with ${this.availableTools.length} tools:`,
+      this.availableTools.map(t => t.name))
+  }
+
+  private initializeFallbackTools() {
+    // Fallback tools when no MCP servers are configured
     this.availableTools = [
       {
         name: "create_file",
@@ -102,9 +131,94 @@ class MCPService {
         }
       }
     ]
+  }
 
-    console.log(`[MCP-DEBUG] ✅ MCP service initialized with ${this.availableTools.length} tools:`,
-      this.availableTools.map(t => t.name))
+  private async initializeServer(serverName: string, serverConfig: MCPServerConfig) {
+    console.log(`[MCP-DEBUG] Initializing server: ${serverName}`)
+
+    // Create transport and client
+    const transport = new StdioClientTransport({
+      command: serverConfig.command,
+      args: serverConfig.args,
+      env: serverConfig.env
+    })
+
+    const client = new Client({
+      name: "whispo-mcp-client",
+      version: "1.0.0"
+    }, {
+      capabilities: {}
+    })
+
+    // Connect to the server
+    await client.connect(transport)
+
+    // Get available tools from the server
+    const toolsResult = await client.listTools()
+
+    // Add tools to our registry with server prefix
+    for (const tool of toolsResult.tools) {
+      this.availableTools.push({
+        name: `${serverName}:${tool.name}`,
+        description: tool.description || `Tool from ${serverName} server`,
+        inputSchema: tool.inputSchema
+      })
+    }
+
+    // Store references
+    this.transports.set(serverName, transport)
+    this.clients.set(serverName, client)
+
+    console.log(`[MCP-DEBUG] Server ${serverName} initialized with ${toolsResult.tools.length} tools`)
+  }
+
+  private cleanupServer(serverName: string) {
+    this.transports.delete(serverName)
+    this.clients.delete(serverName)
+
+    // Remove tools from this server
+    this.availableTools = this.availableTools.filter(tool =>
+      !tool.name.startsWith(`${serverName}:`)
+    )
+  }
+
+  private async executeServerTool(serverName: string, toolName: string, arguments_: any): Promise<MCPToolResult> {
+    const client = this.clients.get(serverName)
+    if (!client) {
+      throw new Error(`Server ${serverName} not found or not connected`)
+    }
+
+    try {
+      const result = await client.callTool({
+        name: toolName,
+        arguments: arguments_
+      })
+
+      // Ensure content is properly formatted
+      const content = Array.isArray(result.content)
+        ? result.content.map(item => ({
+            type: "text" as const,
+            text: typeof item === 'string' ? item : (item.text || JSON.stringify(item))
+          }))
+        : [{
+            type: "text" as const,
+            text: "Tool executed successfully"
+          }]
+
+      return {
+        content,
+        isError: Boolean(result.isError)
+      }
+    } catch (error) {
+      console.error(`[MCP-DEBUG] Error executing tool ${toolName} on server ${serverName}:`, error)
+      return {
+        content: [{
+          type: "text",
+          text: `Error executing tool: ${error instanceof Error ? error.message : String(error)}`
+        }],
+        isError: true
+      }
+    }
   }
 
   getAvailableTools(): MCPTool[] {
@@ -112,10 +226,125 @@ class MCPService {
     return this.availableTools
   }
 
+  getServerStatus(): Record<string, { connected: boolean; toolCount: number; error?: string }> {
+    const status: Record<string, { connected: boolean; toolCount: number; error?: string }> = {}
+
+    for (const [serverName, client] of this.clients) {
+      const transport = this.transports.get(serverName)
+      const toolCount = this.availableTools.filter(tool => tool.name.startsWith(`${serverName}:`)).length
+
+      status[serverName] = {
+        connected: !!client && !!transport,
+        toolCount
+      }
+    }
+
+    return status
+  }
+
+  async testServerConnection(serverName: string, serverConfig: MCPServerConfig): Promise<{ success: boolean; error?: string; toolCount?: number }> {
+    try {
+      // This is a simplified test - in a real implementation, you might want to
+      // spawn a temporary process to test the connection
+      console.log(`[MCP-DEBUG] Testing connection to server: ${serverName}`)
+
+      // Basic validation
+      if (!serverConfig.command) {
+        return { success: false, error: "Command is required" }
+      }
+
+      if (!Array.isArray(serverConfig.args)) {
+        return { success: false, error: "Args must be an array" }
+      }
+
+      // For now, we'll just return success if the config looks valid
+      // In a real implementation, you'd want to actually test the connection
+      return { success: true, toolCount: 0 }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  async restartServer(serverName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log(`[MCP-DEBUG] Restarting server: ${serverName}`)
+
+      // Get the current config for this server
+      const config = configStore.get()
+      const mcpConfig = config.mcpConfig
+
+      if (!mcpConfig?.mcpServers?.[serverName]) {
+        return { success: false, error: `Server ${serverName} not found in configuration` }
+      }
+
+      const serverConfig = mcpConfig.mcpServers[serverName]
+
+      // Clean up existing server
+      await this.stopServer(serverName)
+
+      // Reinitialize the server
+      await this.initializeServer(serverName, serverConfig)
+
+      return { success: true }
+    } catch (error) {
+      console.error(`[MCP-DEBUG] Failed to restart server ${serverName}:`, error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  async stopServer(serverName: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log(`[MCP-DEBUG] Stopping server: ${serverName}`)
+
+      const client = this.clients.get(serverName)
+      const transport = this.transports.get(serverName)
+
+      if (client) {
+        try {
+          await client.close()
+        } catch (error) {
+          console.error(`[MCP-DEBUG] Error closing client for ${serverName}:`, error)
+        }
+      }
+
+      if (transport) {
+        try {
+          await transport.close()
+        } catch (error) {
+          console.error(`[MCP-DEBUG] Error closing transport for ${serverName}:`, error)
+        }
+      }
+
+      // Clean up references
+      this.cleanupServer(serverName)
+
+      return { success: true }
+    } catch (error) {
+      console.error(`[MCP-DEBUG] Failed to stop server ${serverName}:`, error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
   async executeToolCall(toolCall: MCPToolCall): Promise<MCPToolResult> {
     console.log(`[MCP-DEBUG] 🔧 Executing tool call: ${toolCall.name}`, toolCall.arguments)
 
     try {
+      // Check if this is a server-prefixed tool
+      if (toolCall.name.includes(':')) {
+        const [serverName, toolName] = toolCall.name.split(':', 2)
+        return await this.executeServerTool(serverName, toolName, toolCall.arguments)
+      }
+
+      // Handle fallback tools
       let result: MCPToolResult
 
       switch (toolCall.name) {
@@ -244,14 +473,27 @@ class MCPService {
   }
 
   async cleanup(): Promise<void> {
-    if (this.client) {
-      await this.client.close()
-      this.client = null
+    // Close all clients and transports
+    for (const [serverName, client] of this.clients) {
+      try {
+        await client.close()
+      } catch (error) {
+        console.error(`[MCP-DEBUG] Error closing client for ${serverName}:`, error)
+      }
     }
-    if (this.transport) {
-      await this.transport.close()
-      this.transport = null
+
+    for (const [serverName, transport] of this.transports) {
+      try {
+        await transport.close()
+      } catch (error) {
+        console.error(`[MCP-DEBUG] Error closing transport for ${serverName}:`, error)
+      }
     }
+
+    // Clear all maps
+    this.clients.clear()
+    this.transports.clear()
+    this.availableTools = []
   }
 }
 

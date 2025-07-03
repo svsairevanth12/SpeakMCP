@@ -11,7 +11,7 @@ import {
 } from "electron"
 import path from "path"
 import { configStore, recordingsFolder } from "./config"
-import { Config, RecordingHistoryItem } from "../shared/types"
+import { Config, RecordingHistoryItem, MCPConfig, MCPServerConfig } from "../shared/types"
 import { RendererHandlers } from "./renderer-handlers"
 import { postProcessTranscript, processTranscriptWithTools } from "./llm"
 import { mcpService, MCPToolResult } from "./mcp-service"
@@ -541,6 +541,121 @@ export const router = {
         state.isRecording = false
       }
       updateTrayIcon()
+    }),
+
+  // MCP Config File Operations
+  loadMcpConfigFile: t.procedure.action(async () => {
+    const result = await dialog.showOpenDialog({
+      title: "Load MCP Configuration",
+      filters: [
+        { name: "JSON Files", extensions: ["json"] },
+        { name: "All Files", extensions: ["*"] }
+      ],
+      properties: ["openFile"]
+    })
+
+    if (result.canceled || !result.filePaths.length) {
+      return null
+    }
+
+    try {
+      const configContent = fs.readFileSync(result.filePaths[0], "utf8")
+      const mcpConfig = JSON.parse(configContent) as MCPConfig
+
+      // Basic validation
+      if (!mcpConfig.mcpServers || typeof mcpConfig.mcpServers !== "object") {
+        throw new Error("Invalid MCP config: missing or invalid mcpServers")
+      }
+
+      // Validate each server config
+      for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
+        if (!serverConfig.command || !Array.isArray(serverConfig.args)) {
+          throw new Error(`Invalid server config for "${serverName}": missing command or args`)
+        }
+      }
+
+      return mcpConfig
+    } catch (error) {
+      throw new Error(`Failed to load MCP config: ${error.message}`)
+    }
+  }),
+
+  saveMcpConfigFile: t.procedure
+    .input<{ config: MCPConfig }>()
+    .action(async ({ input }) => {
+      const result = await dialog.showSaveDialog({
+        title: "Save MCP Configuration",
+        defaultPath: "mcp.json",
+        filters: [
+          { name: "JSON Files", extensions: ["json"] },
+          { name: "All Files", extensions: ["*"] }
+        ]
+      })
+
+      if (result.canceled || !result.filePath) {
+        return false
+      }
+
+      try {
+        fs.writeFileSync(result.filePath, JSON.stringify(input.config, null, 2))
+        return true
+      } catch (error) {
+        throw new Error(`Failed to save MCP config: ${error.message}`)
+      }
+    }),
+
+  validateMcpConfig: t.procedure
+    .input<{ config: MCPConfig }>()
+    .action(async ({ input }) => {
+      try {
+        if (!input.config.mcpServers || typeof input.config.mcpServers !== "object") {
+          return { valid: false, error: "Missing or invalid mcpServers" }
+        }
+
+        for (const [serverName, serverConfig] of Object.entries(input.config.mcpServers)) {
+          if (!serverConfig.command) {
+            return { valid: false, error: `Server "${serverName}": missing command` }
+          }
+          if (!Array.isArray(serverConfig.args)) {
+            return { valid: false, error: `Server "${serverName}": args must be an array` }
+          }
+          if (serverConfig.env && typeof serverConfig.env !== "object") {
+            return { valid: false, error: `Server "${serverName}": env must be an object` }
+          }
+          if (serverConfig.timeout && typeof serverConfig.timeout !== "number") {
+            return { valid: false, error: `Server "${serverName}": timeout must be a number` }
+          }
+          if (serverConfig.disabled && typeof serverConfig.disabled !== "boolean") {
+            return { valid: false, error: `Server "${serverName}": disabled must be a boolean` }
+          }
+        }
+
+        return { valid: true }
+      } catch (error) {
+        return { valid: false, error: error.message }
+      }
+    }),
+
+  getMcpServerStatus: t.procedure.action(async () => {
+    return mcpService.getServerStatus()
+  }),
+
+  testMcpServerConnection: t.procedure
+    .input<{ serverName: string; serverConfig: MCPServerConfig }>()
+    .action(async ({ input }) => {
+      return mcpService.testServerConnection(input.serverName, input.serverConfig)
+    }),
+
+  restartMcpServer: t.procedure
+    .input<{ serverName: string }>()
+    .action(async ({ input }) => {
+      return mcpService.restartServer(input.serverName)
+    }),
+
+  stopMcpServer: t.procedure
+    .input<{ serverName: string }>()
+    .action(async ({ input }) => {
+      return mcpService.stopServer(input.serverName)
     }),
 }
 

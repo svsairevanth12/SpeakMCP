@@ -7,6 +7,19 @@ export type RecordingHistoryItem = {
   transcript: string
 }
 
+// MCP Server Configuration Types
+export interface MCPServerConfig {
+  command: string
+  args: string[]
+  env?: Record<string, string>
+  timeout?: number
+  disabled?: boolean
+}
+
+export interface MCPConfig {
+  mcpServers: Record<string, MCPServerConfig>
+}
+
 export type Config = {
   shortcut?: "hold-ctrl" | "ctrl-slash"
   hideDockIcon?: boolean
@@ -42,4 +55,7 @@ export type Config = {
   mcpToolsGroqModel?: string
   mcpToolsGeminiModel?: string
   mcpToolsSystemPrompt?: string
+
+  // MCP Server Configuration
+  mcpConfig?: MCPConfig
 }

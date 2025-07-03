@@ -6,8 +6,10 @@ import { Label } from "@renderer/components/ui/label"
 import { Switch } from "@renderer/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@renderer/components/ui/select"
 import { Textarea } from "@renderer/components/ui/textarea"
+
 import { CHAT_PROVIDERS } from "@shared/index"
-import { Config } from "@shared/types"
+import { Config, MCPConfig } from "@shared/types"
+import { MCPConfigManager } from "@renderer/components/mcp-config-manager"
 
 export function Component() {
   const configQuery = useConfigQuery()
@@ -27,6 +29,10 @@ export function Component() {
   const updateConfig = (updates: Partial<Config>) => {
     const newConfig = { ...config, ...updates }
     saveConfigMutation.mutate(newConfig)
+  }
+
+  const updateMcpConfig = (mcpConfig: MCPConfig) => {
+    updateConfig({ mcpConfig })
   }
 
   const defaultSystemPrompt = `You are a helpful assistant that can execute tools based on user requests.
@@ -209,6 +215,16 @@ Always respond with valid JSON only.`
             </>
           )}
         </div>
+
+        {/* MCP Server Configuration Section */}
+        {config.mcpToolsEnabled && (
+          <div className="mt-8 pt-6 border-t">
+            <MCPConfigManager
+              config={config.mcpConfig || { mcpServers: {} }}
+              onConfigChange={updateMcpConfig}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
