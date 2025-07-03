@@ -71,16 +71,16 @@ class MCPService {
       },
       {
         name: "list_files",
-        description: "List files in a directory",
+        description: "List files and directories in a specified path. If no path is provided, lists the current working directory.",
         inputSchema: {
           type: "object",
           properties: {
             path: {
               type: "string",
-              description: "The directory path to list"
+              description: "The directory path to list (optional, defaults to current directory if not specified)"
             }
           },
-          required: ["path"]
+          required: []
         }
       },
       {
@@ -130,8 +130,9 @@ class MCPService {
           break
 
         case "list_files":
-          console.log(`[MCP-DEBUG] Listing files in: ${toolCall.arguments.path}`)
-          result = await this.listFiles(toolCall.arguments.path)
+          const listPath = toolCall.arguments.path || "."
+          console.log(`[MCP-DEBUG] Listing files in: ${listPath}`)
+          result = await this.listFiles(listPath)
           break
 
         case "send_notification":
@@ -201,7 +202,7 @@ class MCPService {
     }
   }
 
-  private async listFiles(path: string): Promise<MCPToolResult> {
+  private async listFiles(path: string = "."): Promise<MCPToolResult> {
     const fs = await import("fs/promises")
 
     try {
@@ -210,10 +211,11 @@ class MCPService {
         file.isDirectory() ? `${file.name}/` : file.name
       ).join("\n")
 
+      const displayPath = path === "." ? "current directory" : path
       return {
         content: [{
           type: "text",
-          text: `Files in ${path}:\n\n${fileList}`
+          text: `Files in ${displayPath}:\n\n${fileList}`
         }]
       }
     } catch (error) {

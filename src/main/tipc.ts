@@ -418,8 +418,16 @@ export const router = {
       // Process transcript with MCP tools
       console.log("[MCP-DEBUG] 🔧 Getting available tools and processing with LLM...")
       const availableTools = mcpService.getAvailableTools()
+      console.log(`[MCP-DEBUG] Available tools for processing: ${availableTools.map(t => t.name).join(', ')}`)
+
       const llmResponse = await processTranscriptWithTools(transcript, availableTools)
-      console.log("[MCP-DEBUG] 📝 LLM processing completed:", llmResponse)
+      console.log("[MCP-DEBUG] 📝 LLM processing completed:")
+      console.log(`[MCP-DEBUG] - Has content: ${!!llmResponse.content}`)
+      console.log(`[MCP-DEBUG] - Has toolCalls: ${!!llmResponse.toolCalls}`)
+      console.log(`[MCP-DEBUG] - Number of toolCalls: ${llmResponse.toolCalls?.length || 0}`)
+      if (llmResponse.toolCalls) {
+        console.log(`[MCP-DEBUG] - Tool names: ${llmResponse.toolCalls.map(tc => tc.name).join(', ')}`)
+      }
 
       let finalResponse = ""
 
@@ -445,10 +453,13 @@ export const router = {
           ? `${llmResponse.content}\n\n${toolResultTexts}`
           : toolResultTexts
 
-        console.log(`[MCP-DEBUG] ✅ Tool execution completed, final response: "${finalResponse}"`)
+        console.log(`[MCP-DEBUG] ✅ Tool execution completed, final response length: ${finalResponse.length}`)
+        console.log(`[MCP-DEBUG] Final response preview: "${finalResponse.substring(0, 100)}..."`)
       } else {
         console.log("[MCP-DEBUG] No tool calls needed, using LLM response or original transcript")
         finalResponse = llmResponse.content || transcript
+        console.log(`[MCP-DEBUG] Using ${llmResponse.content ? 'LLM content' : 'original transcript'} as final response`)
+        console.log(`[MCP-DEBUG] Final response preview: "${finalResponse.substring(0, 100)}..."`)
       }
 
       // Save to history (optional - we might want to track MCP recordings separately)

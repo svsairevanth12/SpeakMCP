@@ -2,6 +2,122 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 import { configStore } from "./config"
 import { MCPTool, MCPToolCall, LLMToolCallResponse } from "./mcp-service"
 
+/**
+ * Validates that a parsed JSON object has the expected structure for LLM tool responses
+ */
+function isValidLLMResponse(obj: any): obj is LLMToolCallResponse {
+  if (!obj || typeof obj !== 'object') {
+    return false
+  }
+
+  // Must have either content or toolCalls (or both)
+  const hasContent = typeof obj.content === 'string'
+  const hasToolCalls = Array.isArray(obj.toolCalls) && obj.toolCalls.length > 0
+
+  if (!hasContent && !hasToolCalls) {
+    return false
+  }
+
+  // If toolCalls exist, validate their structure
+  if (hasToolCalls) {
+    for (const toolCall of obj.toolCalls) {
+      if (!toolCall || typeof toolCall !== 'object' ||
+          typeof toolCall.name !== 'string' ||
+          !toolCall.arguments || typeof toolCall.arguments !== 'object') {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+/**
+ * Attempts to extract and parse JSON from various response formats
+ * Handles cases where JSON is wrapped in markdown code blocks or mixed with text
+ */
+function extractAndParseJSON(responseText: string): LLMToolCallResponse | null {
+  console.log(`[MCP-DEBUG] 🔍 Attempting to extract JSON from response: "${responseText.substring(0, 200)}..."`)
+
+  // First, try direct JSON parsing
+  try {
+    const parsed = JSON.parse(responseText.trim())
+    if (isValidLLMResponse(parsed)) {
+      console.log(`[MCP-DEBUG] ✅ Direct JSON parse successful`)
+      return parsed
+    } else {
+      console.log(`[MCP-DEBUG] ⚠️ Direct JSON parse successful but invalid structure`)
+    }
+  } catch (error) {
+    console.log(`[MCP-DEBUG] ⚠️ Direct JSON parse failed, trying extraction methods`)
+  }
+
+  // Try to extract JSON from markdown code blocks
+  const codeBlockRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/gi
+  let match = codeBlockRegex.exec(responseText)
+
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[1].trim())
+      if (isValidLLMResponse(parsed)) {
+        console.log(`[MCP-DEBUG] ✅ JSON extracted from code block`)
+        return parsed
+      } else {
+        console.log(`[MCP-DEBUG] ⚠️ JSON from code block has invalid structure`)
+      }
+    } catch (error) {
+      console.log(`[MCP-DEBUG] ⚠️ Failed to parse JSON from code block`)
+    }
+  }
+
+  // Try to find JSON object in the text (look for { ... })
+  // Use a more sophisticated approach to find balanced braces
+  const findJsonObjects = (text: string): string[] => {
+    const objects: string[] = []
+    let braceCount = 0
+    let start = -1
+
+    for (let i = 0; i < text.length; i++) {
+      if (text[i] === '{') {
+        if (braceCount === 0) {
+          start = i
+        }
+        braceCount++
+      } else if (text[i] === '}') {
+        braceCount--
+        if (braceCount === 0 && start !== -1) {
+          objects.push(text.substring(start, i + 1))
+          start = -1
+        }
+      }
+    }
+
+    return objects
+  }
+
+  const jsonObjects = findJsonObjects(responseText)
+
+  if (jsonObjects.length > 0) {
+    // Try each potential JSON object, starting with the largest
+    const sortedObjects = jsonObjects.sort((a, b) => b.length - a.length)
+
+    for (const potentialJson of sortedObjects) {
+      try {
+        const parsed = JSON.parse(potentialJson.trim())
+        if (isValidLLMResponse(parsed)) {
+          console.log(`[MCP-DEBUG] ✅ JSON extracted from text content`)
+          return parsed
+        }
+      } catch (error) {
+        // Continue to next match
+      }
+    }
+  }
+
+  console.log(`[MCP-DEBUG] ❌ Failed to extract valid JSON from response`)
+  return null
+}
+
 export async function postProcessTranscript(transcript: string) {
   const config = configStore.get()
 
@@ -92,7 +208,9 @@ export async function processTranscriptWithTools(
 Available tools:
 ${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
 
-When the user's request requires using a tool, respond with a JSON object in this format:
+IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any explanatory text before or after the JSON.
+
+When the user's request requires using a tool, respond with this exact JSON format:
 {
   "toolCalls": [
     {
@@ -100,15 +218,35 @@ When the user's request requires using a tool, respond with a JSON object in thi
       "arguments": { "param1": "value1", "param2": "value2" }
     }
   ],
-  "content": "Optional explanation of what you're doing"
+  "content": "Brief explanation of what you're doing"
 }
 
-If no tools are needed, respond with:
+If no tools are needed, respond with this exact JSON format:
 {
   "content": "Your response text here"
 }
 
-Always respond with valid JSON only.`
+Examples:
+
+User: "Create a file called test.txt with hello world"
+Response:
+{
+  "toolCalls": [
+    {
+      "name": "create_file",
+      "arguments": { "path": "test.txt", "content": "hello world" }
+    }
+  ],
+  "content": "Creating test.txt file with hello world content"
+}
+
+User: "What's the weather like?"
+Response:
+{
+  "content": "I don't have access to weather information. You might want to check a weather app or website."
+}
+
+Remember: Respond with ONLY the JSON object, no markdown formatting, no code blocks, no additional text.`
 
   console.log(`[MCP-DEBUG] System prompt created with ${availableTools.length} tools`)
 
@@ -142,12 +280,12 @@ Always respond with valid JSON only.`
     const responseText = result.response.text().trim()
     console.log(`[MCP-DEBUG] Gemini response:`, responseText)
 
-    try {
-      const parsed = JSON.parse(responseText)
+    const parsed = extractAndParseJSON(responseText)
+    if (parsed) {
       console.log(`[MCP-DEBUG] ✅ Successfully parsed Gemini JSON response:`, parsed)
       return parsed
-    } catch (error) {
-      console.log(`[MCP-DEBUG] ⚠️ Failed to parse Gemini response as JSON, returning as content:`, error)
+    } else {
+      console.log(`[MCP-DEBUG] ⚠️ Failed to extract JSON from Gemini response, returning as content`)
       return { content: responseText }
     }
   }
@@ -192,12 +330,12 @@ Always respond with valid JSON only.`
   const responseContent = chatJson.choices[0].message.content.trim()
   console.log(`[MCP-DEBUG] Response content: "${responseContent}"`)
 
-  try {
-    const parsed = JSON.parse(responseContent)
+  const parsed = extractAndParseJSON(responseContent)
+  if (parsed) {
     console.log(`[MCP-DEBUG] ✅ Successfully parsed LLM JSON response:`, parsed)
     return parsed
-  } catch (error) {
-    console.log(`[MCP-DEBUG] ⚠️ Failed to parse LLM response as JSON, returning as content:`, error)
+  } else {
+    console.log(`[MCP-DEBUG] ⚠️ Failed to extract JSON from LLM response, returning as content`)
     return { content: responseContent }
   }
 }

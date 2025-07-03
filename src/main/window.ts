@@ -185,7 +185,7 @@ export function createPanelWindow() {
 
 
   // Only log important MCP-related console messages
-  win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+  win.webContents.on('console-message', (_event, _level, message, _line, _sourceId) => {
     if (message.includes('[MCP-DEBUG]') && (
       message.includes('startMcpRecording handler triggered') ||
       message.includes('finishMcpRecording handler triggered') ||
