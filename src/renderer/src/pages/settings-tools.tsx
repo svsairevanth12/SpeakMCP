@@ -10,6 +10,7 @@ import { Textarea } from "@renderer/components/ui/textarea"
 import { CHAT_PROVIDERS } from "@shared/index"
 import { Config, MCPConfig } from "@shared/types"
 import { MCPConfigManager } from "@renderer/components/mcp-config-manager"
+import { MCPToolManager } from "@renderer/components/mcp-tool-manager"
 
 export function Component() {
   const configQuery = useConfigQuery()
@@ -218,11 +219,16 @@ Always respond with valid JSON only.`
 
         {/* MCP Server Configuration Section */}
         {config.mcpToolsEnabled && (
-          <div className="mt-8 pt-6 border-t">
+          <div className="mt-8 pt-6 border-t space-y-8">
             <MCPConfigManager
               config={config.mcpConfig || { mcpServers: {} }}
               onConfigChange={updateMcpConfig}
             />
+
+            {/* MCP Tool Management Section */}
+            <div className="pt-6 border-t">
+              <MCPToolManager />
+            </div>
           </div>
         )}
       </div>

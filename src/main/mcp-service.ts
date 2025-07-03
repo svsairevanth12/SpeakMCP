@@ -39,9 +39,15 @@ class MCPService {
   private clients: Map<string, Client> = new Map()
   private transports: Map<string, StdioClientTransport> = new Map()
   private availableTools: MCPTool[] = []
+  private disabledTools: Set<string> = new Set()
+  private isInitializing = false
+  private initializationProgress: { current: number; total: number; currentServer?: string } = { current: 0, total: 0 }
 
   async initialize(): Promise<void> {
     console.log("[MCP-DEBUG] 🚀 Initializing MCP service...")
+
+    this.isInitializing = true
+    this.initializationProgress = { current: 0, total: 0 }
 
     const config = configStore.get()
     const mcpConfig = config.mcpConfig
@@ -49,23 +55,28 @@ class MCPService {
     if (!mcpConfig || !mcpConfig.mcpServers) {
       console.log("[MCP-DEBUG] No MCP servers configured, using fallback tools")
       this.initializeFallbackTools()
+      this.isInitializing = false
       return
     }
 
+    // Count enabled servers for progress tracking
+    const enabledServers = Object.entries(mcpConfig.mcpServers).filter(([_, config]) => !config.disabled)
+    this.initializationProgress.total = enabledServers.length
+
     // Initialize configured MCP servers
-    for (const [serverName, serverConfig] of Object.entries(mcpConfig.mcpServers)) {
-      if (serverConfig.disabled) {
-        console.log(`[MCP-DEBUG] Skipping disabled server: ${serverName}`)
-        continue
-      }
+    for (const [serverName, serverConfig] of enabledServers) {
+      this.initializationProgress.currentServer = serverName
 
       try {
         await this.initializeServer(serverName, serverConfig)
       } catch (error) {
         console.error(`[MCP-DEBUG] Failed to initialize server ${serverName}:`, error)
       }
+
+      this.initializationProgress.current++
     }
 
+    this.isInitializing = false
     console.log(`[MCP-DEBUG] ✅ MCP service initialized with ${this.availableTools.length} tools:`,
       this.availableTools.map(t => t.name))
   }
@@ -233,8 +244,28 @@ class MCPService {
   }
 
   getAvailableTools(): MCPTool[] {
-    console.log(`[MCP-DEBUG] 📋 Getting available tools (${this.availableTools.length} tools)`)
-    return this.availableTools
+    const enabledTools = this.availableTools.filter(tool => !this.disabledTools.has(tool.name))
+    console.log(`[MCP-DEBUG] 📋 Getting available tools (${enabledTools.length}/${this.availableTools.length} tools enabled)`)
+    return enabledTools
+  }
+
+  getDetailedToolList(): Array<{
+    name: string
+    description: string
+    serverName: string
+    enabled: boolean
+    inputSchema: any
+  }> {
+    return this.availableTools.map(tool => {
+      const serverName = tool.name.includes(':') ? tool.name.split(':')[0] : 'fallback'
+      return {
+        name: tool.name,
+        description: tool.description,
+        serverName,
+        enabled: !this.disabledTools.has(tool.name),
+        inputSchema: tool.inputSchema
+      }
+    })
   }
 
   getServerStatus(): Record<string, { connected: boolean; toolCount: number; error?: string }> {
@@ -251,6 +282,35 @@ class MCPService {
     }
 
     return status
+  }
+
+  getInitializationStatus(): { isInitializing: boolean; progress: { current: number; total: number; currentServer?: string } } {
+    return {
+      isInitializing: this.isInitializing,
+      progress: { ...this.initializationProgress }
+    }
+  }
+
+  setToolEnabled(toolName: string, enabled: boolean): boolean {
+    const toolExists = this.availableTools.some(tool => tool.name === toolName)
+    if (!toolExists) {
+      console.warn(`[MCP-DEBUG] Tool ${toolName} not found`)
+      return false
+    }
+
+    if (enabled) {
+      this.disabledTools.delete(toolName)
+      console.log(`[MCP-DEBUG] Enabled tool: ${toolName}`)
+    } else {
+      this.disabledTools.add(toolName)
+      console.log(`[MCP-DEBUG] Disabled tool: ${toolName}`)
+    }
+
+    return true
+  }
+
+  getDisabledTools(): string[] {
+    return Array.from(this.disabledTools)
   }
 
   async testServerConnection(serverName: string, serverConfig: MCPServerConfig): Promise<{ success: boolean; error?: string; toolCount?: number }> {

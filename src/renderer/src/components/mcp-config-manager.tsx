@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@rend
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@renderer/components/ui/dialog"
 import { Badge } from "@renderer/components/ui/badge"
 import { Trash2, Edit, Plus, Upload, Download, Server, CheckCircle, XCircle, AlertCircle, BookOpen, RotateCcw, Square } from "lucide-react"
+import { Spinner } from "@renderer/components/ui/spinner"
 import { MCPConfig, MCPServerConfig } from "@shared/types"
 import { tipcClient } from "@renderer/lib/tipc-client"
 import { toast } from "sonner"
@@ -215,22 +216,27 @@ export function MCPConfigManager({ config, onConfigChange }: MCPConfigManagerPro
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showExamples, setShowExamples] = useState(false)
   const [serverStatus, setServerStatus] = useState<Record<string, { connected: boolean; toolCount: number; error?: string }>>({})
+  const [initializationStatus, setInitializationStatus] = useState<{ isInitializing: boolean; progress: { current: number; total: number; currentServer?: string } }>({ isInitializing: false, progress: { current: 0, total: 0 } })
 
   const servers = config.mcpServers || {}
 
-  // Fetch server status periodically
+  // Fetch server status and initialization status periodically
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const status = await tipcClient.getMcpServerStatus()
+        const [status, initStatus] = await Promise.all([
+          tipcClient.getMcpServerStatus(),
+          tipcClient.getMcpInitializationStatus()
+        ])
         setServerStatus(status)
+        setInitializationStatus(initStatus)
       } catch (error) {
         console.error("Failed to fetch server status:", error)
       }
     }
 
     fetchStatus()
-    const interval = setInterval(fetchStatus, 5000) // Update every 5 seconds
+    const interval = setInterval(fetchStatus, 1000) // Update every second during initialization
 
     return () => clearInterval(interval)
   }, [servers])
@@ -405,6 +411,28 @@ export function MCPConfigManager({ config, onConfigChange }: MCPConfigManagerPro
           </Dialog>
         </div>
       </div>
+
+      {/* Loading spinner during initialization */}
+      {initializationStatus.isInitializing && (
+        <Card className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950">
+          <CardContent className="flex items-center justify-center py-6">
+            <div className="flex items-center gap-3">
+              <Spinner className="h-5 w-5" />
+              <div className="text-sm">
+                <div className="font-medium">Initializing MCP servers...</div>
+                <div className="text-muted-foreground">
+                  {initializationStatus.progress.currentServer && (
+                    <>Connecting to {initializationStatus.progress.currentServer}</>
+                  )}
+                  {initializationStatus.progress.total > 0 && (
+                    <> ({initializationStatus.progress.current}/{initializationStatus.progress.total})</>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4">
         {Object.entries(servers).length === 0 ? (

@@ -640,6 +640,25 @@ export const router = {
     return mcpService.getServerStatus()
   }),
 
+  getMcpInitializationStatus: t.procedure.action(async () => {
+    return mcpService.getInitializationStatus()
+  }),
+
+  getMcpDetailedToolList: t.procedure.action(async () => {
+    return mcpService.getDetailedToolList()
+  }),
+
+  setMcpToolEnabled: t.procedure
+    .input<{ toolName: string; enabled: boolean }>()
+    .action(async ({ input }) => {
+      const success = mcpService.setToolEnabled(input.toolName, input.enabled)
+      return { success }
+    }),
+
+  getMcpDisabledTools: t.procedure.action(async () => {
+    return mcpService.getDisabledTools()
+  }),
+
   testMcpServerConnection: t.procedure
     .input<{ serverName: string; serverConfig: MCPServerConfig }>()
     .action(async ({ input }) => {
