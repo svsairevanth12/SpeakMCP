@@ -89,6 +89,11 @@ export function listenToKeyboardEvents() {
   let startRecordingTimer: NodeJS.Timeout | undefined
   let isPressedCtrlKey = false
 
+  // MCP tool calling state
+  let isHoldingCtrlAltKey = false
+  let startMcpRecordingTimer: NodeJS.Timeout | undefined
+  let isPressedCtrlAltKey = false
+
   if (process.env.IS_MAC) {
     if (!systemPreferences.isTrustedAccessibilityClient(false)) {
       return
@@ -102,10 +107,21 @@ export function listenToKeyboardEvents() {
     }
   }
 
+  const cancelMcpRecordingTimer = () => {
+    if (startMcpRecordingTimer) {
+      clearTimeout(startMcpRecordingTimer)
+      startMcpRecordingTimer = undefined
+    }
+  }
+
   const handleEvent = (e: RdevEvent) => {
     if (e.event_type === "KeyPress") {
       if (e.data.key === "ControlLeft") {
         isPressedCtrlKey = true
+      }
+
+      if (e.data.key === "AltLeft") {
+        isPressedCtrlAltKey = isPressedCtrlKey && true
       }
 
       if (e.data.key === "Escape" && state.isRecording) {
@@ -117,7 +133,16 @@ export function listenToKeyboardEvents() {
         return
       }
 
-      if (configStore.get().shortcut === "ctrl-slash") {
+      // Handle MCP tool calling shortcuts
+      const config = configStore.get()
+      if (config.mcpToolsEnabled && config.mcpToolsShortcut === "ctrl-alt-slash") {
+        if (e.data.key === "Slash" && isPressedCtrlKey && isPressedCtrlAltKey) {
+          getWindowRendererHandlers("panel")?.startOrFinishMcpRecording.send()
+          return
+        }
+      }
+
+      if (config.shortcut === "ctrl-slash") {
         if (e.data.key === "Slash" && isPressedCtrlKey) {
           getWindowRendererHandlers("panel")?.startOrFinishRecording.send()
         }
@@ -142,16 +167,42 @@ export function listenToKeyboardEvents() {
 
             showPanelWindowAndStartRecording()
           }, 800)
+        } else if (e.data.key === "AltLeft" && isPressedCtrlKey && config.mcpToolsEnabled && config.mcpToolsShortcut === "hold-ctrl-alt") {
+          if (hasRecentKeyPress()) {
+            console.log("ignore ctrl+alt because other keys are pressed", [
+              ...keysPressed.keys(),
+            ])
+            return
+          }
+
+          if (startMcpRecordingTimer) {
+            return
+          }
+
+          startMcpRecordingTimer = setTimeout(() => {
+            isHoldingCtrlAltKey = true
+
+            console.log("start MCP recording")
+
+            showPanelWindowAndStartRecording()
+          }, 800)
         } else {
           keysPressed.set(e.data.key, e.time.secs_since_epoch)
           cancelRecordingTimer()
+          cancelMcpRecordingTimer()
 
           // when holding ctrl key, pressing any other key will stop recording
           if (isHoldingCtrlKey) {
             stopRecordingAndHidePanelWindow()
           }
 
+          // when holding ctrl+alt key, pressing any other key will stop MCP recording
+          if (isHoldingCtrlAltKey) {
+            stopRecordingAndHidePanelWindow()
+          }
+
           isHoldingCtrlKey = false
+          isHoldingCtrlAltKey = false
         }
       }
     } else if (e.event_type === "KeyRelease") {
@@ -161,9 +212,14 @@ export function listenToKeyboardEvents() {
         isPressedCtrlKey = false
       }
 
+      if (e.data.key === "AltLeft") {
+        isPressedCtrlAltKey = false
+      }
+
       if (configStore.get().shortcut === "ctrl-slash") return
 
       cancelRecordingTimer()
+      cancelMcpRecordingTimer()
 
       if (e.data.key === "ControlLeft") {
         console.log("release ctrl")
@@ -174,6 +230,17 @@ export function listenToKeyboardEvents() {
         }
 
         isHoldingCtrlKey = false
+      }
+
+      if (e.data.key === "AltLeft") {
+        console.log("release alt")
+        if (isHoldingCtrlAltKey) {
+          getWindowRendererHandlers("panel")?.finishMcpRecording.send()
+        } else {
+          stopRecordingAndHidePanelWindow()
+        }
+
+        isHoldingCtrlAltKey = false
       }
     }
   }

@@ -33,4 +33,13 @@ export type Config = {
   transcriptPostProcessingOpenaiModel?: string
   transcriptPostProcessingGroqModel?: string
   transcriptPostProcessingGeminiModel?: string
+
+  // MCP Tool Calling Configuration
+  mcpToolsEnabled?: boolean
+  mcpToolsShortcut?: "hold-ctrl-alt" | "ctrl-alt-slash"
+  mcpToolsProviderId?: CHAT_PROVIDER_ID
+  mcpToolsOpenaiModel?: string
+  mcpToolsGroqModel?: string
+  mcpToolsGeminiModel?: string
+  mcpToolsSystemPrompt?: string
 }

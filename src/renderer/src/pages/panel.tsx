@@ -16,6 +16,7 @@ export function Component() {
     getInitialVisualizerData(),
   )
   const [recording, setRecording] = useState(false)
+  const [mcpMode, setMcpMode] = useState(false)
   const isConfirmedRef = useRef(false)
 
   const transcribeMutation = useMutation({
@@ -27,6 +28,28 @@ export function Component() {
       duration: number
     }) => {
       await tipcClient.createRecording({
+        recording: await blob.arrayBuffer(),
+        duration,
+      })
+    },
+    onError(error) {
+      tipcClient.hidePanelWindow()
+      tipcClient.displayError({
+        title: error.name,
+        message: error.message,
+      })
+    },
+  })
+
+  const mcpTranscribeMutation = useMutation({
+    mutationFn: async ({
+      blob,
+      duration,
+    }: {
+      blob: Blob
+      duration: number
+    }) => {
+      await tipcClient.createMcpRecording({
         recording: await blob.arrayBuffer(),
         duration,
       })
@@ -72,10 +95,22 @@ export function Component() {
       if (!isConfirmedRef.current) return
 
       playSound("end_record")
-      transcribeMutation.mutate({
-        blob,
-        duration,
-      })
+
+      // Use appropriate mutation based on mode
+      if (mcpMode) {
+        mcpTranscribeMutation.mutate({
+          blob,
+          duration,
+        })
+      } else {
+        transcribeMutation.mutate({
+          blob,
+          duration,
+        })
+      }
+
+      // Reset MCP mode after recording
+      setMcpMode(false)
     })
   }, [])
 
@@ -120,15 +155,56 @@ export function Component() {
     return unlisten
   }, [recording])
 
+  // MCP handlers
+  useEffect(() => {
+    const unlisten = rendererHandlers.startMcpRecording.listen(() => {
+      setMcpMode(true)
+      setVisualizerData(() => getInitialVisualizerData())
+      recorderRef.current?.startRecording()
+    })
+
+    return unlisten
+  }, [])
+
+  useEffect(() => {
+    const unlisten = rendererHandlers.finishMcpRecording.listen(() => {
+      isConfirmedRef.current = true
+      recorderRef.current?.stopRecording()
+    })
+
+    return unlisten
+  }, [])
+
+  useEffect(() => {
+    const unlisten = rendererHandlers.startOrFinishMcpRecording.listen(() => {
+      if (recording) {
+        isConfirmedRef.current = true
+        recorderRef.current?.stopRecording()
+      } else {
+        setMcpMode(true)
+        tipcClient.showPanelWindow()
+        recorderRef.current?.startRecording()
+      }
+    })
+
+    return unlisten
+  }, [recording])
+
   return (
     <div className="flex h-screen dark:text-white">
-      {transcribeMutation.isPending ? (
+      {(transcribeMutation.isPending || mcpTranscribeMutation.isPending) ? (
         <div className="flex h-full w-full items-center justify-center">
           <Spinner />
         </div>
       ) : (
         <div className="flex h-full w-full rounded-xl transition-colors">
-          <div className="flex shrink-0"></div>
+          <div className="flex shrink-0">
+            {mcpMode && (
+              <div className="flex items-center justify-center w-8 h-full">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" title="MCP Tool Mode" />
+              </div>
+            )}
+          </div>
           <div
             className="relative flex grow items-center overflow-hidden"
             dir="rtl"

@@ -13,7 +13,8 @@ import path from "path"
 import { configStore, recordingsFolder } from "./config"
 import { Config, RecordingHistoryItem } from "../shared/types"
 import { RendererHandlers } from "./renderer-handlers"
-import { postProcessTranscript } from "./llm"
+import { postProcessTranscript, processTranscriptWithTools } from "./llm"
+import { mcpService, MCPToolResult } from "./mcp-service"
 import { state } from "./state"
 import { updateTrayIcon } from "./tray"
 import { isAccessibilityGranted, isMacSilicon } from "./utils"
@@ -297,6 +298,175 @@ export const router = {
         } catch (error) {
           console.error(`Failed to write text:`, error)
           // Don't throw here, just log the error so the recording still gets saved
+        }
+      }
+    }),
+
+  createMcpRecording: t.procedure
+    .input<{
+      recording: ArrayBuffer
+      duration: number
+    }>()
+    .action(async ({ input }) => {
+      fs.mkdirSync(recordingsFolder, { recursive: true })
+
+      const config = configStore.get()
+      let transcript: string
+
+      // Initialize MCP service if not already done
+      await mcpService.initialize()
+
+      // First, transcribe the audio using the same logic as regular recording
+      if (config.sttProviderId === "lightning-whisper-mlx") {
+        try {
+          const result = await transcribeWithLightningWhisper(input.recording, {
+            model: config.lightningWhisperMlxModel || "distil-medium.en",
+            batchSize: config.lightningWhisperMlxBatchSize || 12,
+            quant: config.lightningWhisperMlxQuant || null,
+          })
+
+          if (!result.success) {
+            throw new Error(result.error || "Lightning Whisper MLX transcription failed")
+          }
+
+          transcript = result.text || ""
+        } catch (error) {
+          console.error("Lightning Whisper MLX failed, falling back to OpenAI:", error)
+
+          // Fallback to OpenAI if lightning-whisper-mlx fails
+          const form = new FormData()
+          form.append(
+            "file",
+            new File([input.recording], "recording.webm", { type: "audio/webm" }),
+          )
+          form.append("model", "whisper-1")
+          form.append("response_format", "json")
+
+          const openaiBaseUrl = config.openaiBaseUrl || "https://api.openai.com/v1"
+
+          const transcriptResponse = await fetch(
+            `${openaiBaseUrl}/audio/transcriptions`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${config.openaiApiKey}`,
+              },
+              body: form,
+            },
+          )
+
+          if (!transcriptResponse.ok) {
+            const message = `Fallback transcription failed: ${transcriptResponse.statusText} ${(await transcriptResponse.text()).slice(0, 300)}`
+            throw new Error(message)
+          }
+
+          const json: { text: string } = await transcriptResponse.json()
+          transcript = json.text
+        }
+      } else {
+        // Use OpenAI or Groq for transcription
+        const form = new FormData()
+        form.append(
+          "file",
+          new File([input.recording], "recording.webm", { type: "audio/webm" }),
+        )
+        form.append(
+          "model",
+          config.sttProviderId === "groq" ? "whisper-large-v3" : "whisper-1",
+        )
+        form.append("response_format", "json")
+
+        if (config.sttProviderId === "groq" && config.groqSttPrompt?.trim()) {
+          form.append("prompt", config.groqSttPrompt.trim())
+        }
+
+        const groqBaseUrl = config.groqBaseUrl || "https://api.groq.com/openai/v1"
+        const openaiBaseUrl = config.openaiBaseUrl || "https://api.openai.com/v1"
+
+        const transcriptResponse = await fetch(
+          config.sttProviderId === "groq"
+            ? `${groqBaseUrl}/audio/transcriptions`
+            : `${openaiBaseUrl}/audio/transcriptions`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${config.sttProviderId === "groq" ? config.groqApiKey : config.openaiApiKey}`,
+            },
+            body: form,
+          },
+        )
+
+        if (!transcriptResponse.ok) {
+          const message = `${transcriptResponse.statusText} ${(await transcriptResponse.text()).slice(0, 300)}`
+          throw new Error(message)
+        }
+
+        const json: { text: string } = await transcriptResponse.json()
+        transcript = json.text
+      }
+
+      // Process transcript with MCP tools
+      const availableTools = mcpService.getAvailableTools()
+      const llmResponse = await processTranscriptWithTools(transcript, availableTools)
+
+      let finalResponse = ""
+
+      // Execute tool calls if any
+      if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
+        const toolResults: MCPToolResult[] = []
+
+        for (const toolCall of llmResponse.toolCalls) {
+          const result = await mcpService.executeToolCall(toolCall)
+          toolResults.push(result)
+        }
+
+        // Combine tool results into final response
+        const toolResultTexts = toolResults.map(result =>
+          result.content.map(c => c.text).join('\n')
+        ).join('\n\n')
+
+        finalResponse = llmResponse.content
+          ? `${llmResponse.content}\n\n${toolResultTexts}`
+          : toolResultTexts
+      } else {
+        finalResponse = llmResponse.content || transcript
+      }
+
+      // Save to history (optional - we might want to track MCP recordings separately)
+      const history = getRecordingHistory()
+      const item: RecordingHistoryItem = {
+        id: Date.now().toString(),
+        createdAt: Date.now(),
+        duration: input.duration,
+        transcript: finalResponse,
+      }
+      history.push(item)
+      saveRecordingsHitory(history)
+
+      fs.writeFileSync(
+        path.join(recordingsFolder, `${item.id}.webm`),
+        Buffer.from(input.recording),
+      )
+
+      const main = WINDOWS.get("main")
+      if (main) {
+        getRendererHandlers<RendererHandlers>(
+          main.webContents,
+        ).refreshRecordingHistory.send()
+      }
+
+      const panel = WINDOWS.get("panel")
+      if (panel) {
+        panel.hide()
+      }
+
+      // Copy final response to clipboard and paste
+      clipboard.writeText(finalResponse)
+      if (isAccessibilityGranted()) {
+        try {
+          await writeText(finalResponse)
+        } catch (error) {
+          console.error(`Failed to write text:`, error)
         }
       }
     }),
