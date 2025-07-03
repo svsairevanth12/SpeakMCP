@@ -32,6 +32,8 @@ class MCPService {
   private availableTools: MCPTool[] = []
 
   async initialize(): Promise<void> {
+    console.log("[MCP-DEBUG] 🔧 Initializing MCP service (in-memory implementation)...")
+
     // For now, we'll implement a simple in-memory tool registry
     // In the future, this could connect to actual MCP servers
     this.availableTools = [
@@ -100,29 +102,46 @@ class MCPService {
         }
       }
     ]
+
+    console.log(`[MCP-DEBUG] ✅ MCP service initialized with ${this.availableTools.length} tools:`,
+      this.availableTools.map(t => t.name))
   }
 
   getAvailableTools(): MCPTool[] {
+    console.log(`[MCP-DEBUG] 📋 Getting available tools (${this.availableTools.length} tools)`)
     return this.availableTools
   }
 
   async executeToolCall(toolCall: MCPToolCall): Promise<MCPToolResult> {
+    console.log(`[MCP-DEBUG] 🔧 Executing tool call: ${toolCall.name}`, toolCall.arguments)
+
     try {
+      let result: MCPToolResult
+
       switch (toolCall.name) {
         case "create_file":
-          return await this.createFile(toolCall.arguments.path, toolCall.arguments.content)
-        
+          console.log(`[MCP-DEBUG] Creating file: ${toolCall.arguments.path}`)
+          result = await this.createFile(toolCall.arguments.path, toolCall.arguments.content)
+          break
+
         case "read_file":
-          return await this.readFile(toolCall.arguments.path)
-        
+          console.log(`[MCP-DEBUG] Reading file: ${toolCall.arguments.path}`)
+          result = await this.readFile(toolCall.arguments.path)
+          break
+
         case "list_files":
-          return await this.listFiles(toolCall.arguments.path)
-        
+          console.log(`[MCP-DEBUG] Listing files in: ${toolCall.arguments.path}`)
+          result = await this.listFiles(toolCall.arguments.path)
+          break
+
         case "send_notification":
-          return await this.sendNotification(toolCall.arguments.title, toolCall.arguments.message)
-        
+          console.log(`[MCP-DEBUG] Sending notification: ${toolCall.arguments.title}`)
+          result = await this.sendNotification(toolCall.arguments.title, toolCall.arguments.message)
+          break
+
         default:
-          return {
+          console.log(`[MCP-DEBUG] ❌ Unknown tool: ${toolCall.name}`)
+          result = {
             content: [{
               type: "text",
               text: `Unknown tool: ${toolCall.name}`
@@ -130,7 +149,12 @@ class MCPService {
             isError: true
           }
       }
+
+      console.log(`[MCP-DEBUG] ✅ Tool execution completed:`, result)
+      return result
+
     } catch (error) {
+      console.error(`[MCP-DEBUG] ❌ Tool execution error for ${toolCall.name}:`, error)
       return {
         content: [{
           type: "text",
@@ -144,12 +168,12 @@ class MCPService {
   private async createFile(path: string, content: string): Promise<MCPToolResult> {
     const fs = await import("fs/promises")
     const pathModule = await import("path")
-    
+
     try {
       // Ensure directory exists
       await fs.mkdir(pathModule.dirname(path), { recursive: true })
       await fs.writeFile(path, content, "utf8")
-      
+
       return {
         content: [{
           type: "text",
@@ -163,7 +187,7 @@ class MCPService {
 
   private async readFile(path: string): Promise<MCPToolResult> {
     const fs = await import("fs/promises")
-    
+
     try {
       const content = await fs.readFile(path, "utf8")
       return {
@@ -179,13 +203,13 @@ class MCPService {
 
   private async listFiles(path: string): Promise<MCPToolResult> {
     const fs = await import("fs/promises")
-    
+
     try {
       const files = await fs.readdir(path, { withFileTypes: true })
-      const fileList = files.map(file => 
+      const fileList = files.map(file =>
         file.isDirectory() ? `${file.name}/` : file.name
       ).join("\n")
-      
+
       return {
         content: [{
           type: "text",
@@ -199,13 +223,13 @@ class MCPService {
 
   private async sendNotification(title: string, message: string): Promise<MCPToolResult> {
     const { Notification } = await import("electron")
-    
+
     try {
       new Notification({
         title,
         body: message
       }).show()
-      
+
       return {
         content: [{
           type: "text",

@@ -66,7 +66,8 @@ function createBaseWindow({
     ? "assets://app"
     : process.env["ELECTRON_RENDERER_URL"]
 
-  win.loadURL(`${baseUrl}${url || ""}`)
+  const fullUrl = `${baseUrl}${url || ""}`
+  win.loadURL(fullUrl)
 
   return win
 }
@@ -181,6 +182,21 @@ export function createPanelWindow() {
     getRendererHandlers<RendererHandlers>(win.webContents).stopRecording.send()
   })
 
+
+
+  // Only log important MCP-related console messages
+  win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    if (message.includes('[MCP-DEBUG]') && (
+      message.includes('startMcpRecording handler triggered') ||
+      message.includes('finishMcpRecording handler triggered') ||
+      message.includes('Using MCP transcription mutation') ||
+      message.includes('Recording ended, mcpMode:') ||
+      message.includes('Setting mcpMode to true')
+    )) {
+      console.log(`[MCP-DEBUG] 📝 ${message}`)
+    }
+  })
+
   makePanel(win)
 
   return win
@@ -199,6 +215,12 @@ export function showPanelWindow() {
 export function showPanelWindowAndStartRecording() {
   showPanelWindow()
   getWindowRendererHandlers("panel")?.startRecording.send()
+}
+
+export function showPanelWindowAndStartMcpRecording() {
+  console.log("[MCP-DEBUG] showPanelWindowAndStartMcpRecording called")
+  showPanelWindow()
+  getWindowRendererHandlers("panel")?.startMcpRecording.send()
 }
 
 export function makePanelWindowClosable() {

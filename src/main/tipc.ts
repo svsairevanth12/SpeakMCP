@@ -308,17 +308,23 @@ export const router = {
       duration: number
     }>()
     .action(async ({ input }) => {
+      console.log(`[MCP-DEBUG] 🎬 Starting MCP recording processing, duration: ${input.duration}ms, audio size: ${input.recording.byteLength} bytes`)
+
       fs.mkdirSync(recordingsFolder, { recursive: true })
 
       const config = configStore.get()
       let transcript: string
 
       // Initialize MCP service if not already done
+      console.log("[MCP-DEBUG] Initializing MCP service...")
       await mcpService.initialize()
 
       // First, transcribe the audio using the same logic as regular recording
+      console.log(`[MCP-DEBUG] 🎤 Starting transcription using provider: ${config.sttProviderId}`)
+
       if (config.sttProviderId === "lightning-whisper-mlx") {
         try {
+          console.log("[MCP-DEBUG] Using Lightning Whisper MLX for transcription")
           const result = await transcribeWithLightningWhisper(input.recording, {
             model: config.lightningWhisperMlxModel || "distil-medium.en",
             batchSize: config.lightningWhisperMlxBatchSize || 12,
@@ -330,8 +336,9 @@ export const router = {
           }
 
           transcript = result.text || ""
+          console.log(`[MCP-DEBUG] ✅ Lightning Whisper transcription successful: "${transcript}"`)
         } catch (error) {
-          console.error("Lightning Whisper MLX failed, falling back to OpenAI:", error)
+          console.error("[MCP-DEBUG] ❌ Lightning Whisper MLX failed, falling back to OpenAI:", error)
 
           // Fallback to OpenAI if lightning-whisper-mlx fails
           const form = new FormData()
@@ -362,9 +369,11 @@ export const router = {
 
           const json: { text: string } = await transcriptResponse.json()
           transcript = json.text
+          console.log(`[MCP-DEBUG] ✅ Fallback OpenAI transcription successful: "${transcript}"`)
         }
       } else {
         // Use OpenAI or Groq for transcription
+        console.log(`[MCP-DEBUG] Using ${config.sttProviderId} for transcription`)
         const form = new FormData()
         form.append(
           "file",
@@ -403,19 +412,26 @@ export const router = {
 
         const json: { text: string } = await transcriptResponse.json()
         transcript = json.text
+        console.log(`[MCP-DEBUG] ✅ ${config.sttProviderId} transcription successful: "${transcript}"`)
       }
 
       // Process transcript with MCP tools
+      console.log("[MCP-DEBUG] 🔧 Getting available tools and processing with LLM...")
       const availableTools = mcpService.getAvailableTools()
       const llmResponse = await processTranscriptWithTools(transcript, availableTools)
+      console.log("[MCP-DEBUG] 📝 LLM processing completed:", llmResponse)
 
       let finalResponse = ""
 
       // Execute tool calls if any
       if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
+        console.log(`[MCP-DEBUG] 🔧 Executing ${llmResponse.toolCalls.length} tool calls:`,
+          llmResponse.toolCalls.map(tc => tc.name))
+
         const toolResults: MCPToolResult[] = []
 
         for (const toolCall of llmResponse.toolCalls) {
+          console.log(`[MCP-DEBUG] Executing tool: ${toolCall.name}`)
           const result = await mcpService.executeToolCall(toolCall)
           toolResults.push(result)
         }
@@ -428,11 +444,15 @@ export const router = {
         finalResponse = llmResponse.content
           ? `${llmResponse.content}\n\n${toolResultTexts}`
           : toolResultTexts
+
+        console.log(`[MCP-DEBUG] ✅ Tool execution completed, final response: "${finalResponse}"`)
       } else {
+        console.log("[MCP-DEBUG] No tool calls needed, using LLM response or original transcript")
         finalResponse = llmResponse.content || transcript
       }
 
       // Save to history (optional - we might want to track MCP recordings separately)
+      console.log("[MCP-DEBUG] 💾 Saving MCP recording to history...")
       const history = getRecordingHistory()
       const item: RecordingHistoryItem = {
         id: Date.now().toString(),
@@ -443,11 +463,13 @@ export const router = {
       history.push(item)
       saveRecordingsHitory(history)
 
+      console.log(`[MCP-DEBUG] Saving audio file: ${item.id}.webm`)
       fs.writeFileSync(
         path.join(recordingsFolder, `${item.id}.webm`),
         Buffer.from(input.recording),
       )
 
+      console.log("[MCP-DEBUG] Refreshing UI and hiding panel...")
       const main = WINDOWS.get("main")
       if (main) {
         getRendererHandlers<RendererHandlers>(
@@ -459,6 +481,8 @@ export const router = {
       if (panel) {
         panel.hide()
       }
+
+      console.log("[MCP-DEBUG] ✅ MCP recording processing completed successfully!")
 
       // Copy final response to clipboard and paste
       clipboard.writeText(finalResponse)
