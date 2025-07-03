@@ -2,6 +2,13 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js"
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { configStore } from "./config"
 import { MCPConfig, MCPServerConfig } from "../shared/types"
+import { spawn, ChildProcess } from "child_process"
+import { promisify } from "util"
+import { access, constants } from "fs"
+import path from "path"
+import os from "os"
+
+const accessAsync = promisify(access)
 
 
 export interface MCPTool {
@@ -136,11 +143,15 @@ class MCPService {
   private async initializeServer(serverName: string, serverConfig: MCPServerConfig) {
     console.log(`[MCP-DEBUG] Initializing server: ${serverName}`)
 
+    // Resolve command path and prepare environment
+    const resolvedCommand = await this.resolveCommandPath(serverConfig.command)
+    const environment = await this.prepareEnvironment(serverConfig.env)
+
     // Create transport and client
     const transport = new StdioClientTransport({
-      command: serverConfig.command,
+      command: resolvedCommand,
       args: serverConfig.args,
-      env: serverConfig.env
+      env: environment
     })
 
     const client = new Client({
@@ -244,8 +255,6 @@ class MCPService {
 
   async testServerConnection(serverName: string, serverConfig: MCPServerConfig): Promise<{ success: boolean; error?: string; toolCount?: number }> {
     try {
-      // This is a simplified test - in a real implementation, you might want to
-      // spawn a temporary process to test the connection
       console.log(`[MCP-DEBUG] Testing connection to server: ${serverName}`)
 
       // Basic validation
@@ -257,13 +266,87 @@ class MCPService {
         return { success: false, error: "Args must be an array" }
       }
 
-      // For now, we'll just return success if the config looks valid
-      // In a real implementation, you'd want to actually test the connection
-      return { success: true, toolCount: 0 }
+      // Try to resolve the command path
+      try {
+        const resolvedCommand = await this.resolveCommandPath(serverConfig.command)
+        console.log(`[MCP-DEBUG] Resolved command path: ${resolvedCommand}`)
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : `Failed to resolve command: ${serverConfig.command}`
+        }
+      }
+
+      // Try to create a temporary connection to test the server
+      const timeout = serverConfig.timeout || 10000
+      const testPromise = this.createTestConnection(serverName, serverConfig)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Connection test timeout')), timeout)
+      })
+
+      const result = await Promise.race([testPromise, timeoutPromise])
+      return result
     } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  private async createTestConnection(serverName: string, serverConfig: MCPServerConfig): Promise<{ success: boolean; error?: string; toolCount?: number }> {
+    let transport: StdioClientTransport | null = null
+    let client: Client | null = null
+
+    try {
+      // Resolve command and prepare environment
+      const resolvedCommand = await this.resolveCommandPath(serverConfig.command)
+      const environment = await this.prepareEnvironment(serverConfig.env)
+
+      // Create a temporary transport and client for testing
+      transport = new StdioClientTransport({
+        command: resolvedCommand,
+        args: serverConfig.args,
+        env: environment
+      })
+
+      client = new Client({
+        name: "whispo-mcp-test-client",
+        version: "1.0.0"
+      }, {
+        capabilities: {}
+      })
+
+      // Try to connect
+      await client.connect(transport)
+
+      // Try to list tools
+      const toolsResult = await client.listTools()
+
+      return {
+        success: true,
+        toolCount: toolsResult.tools.length
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    } finally {
+      // Clean up test connection
+      if (client) {
+        try {
+          await client.close()
+        } catch (error) {
+          console.error(`[MCP-DEBUG] Error closing test client:`, error)
+        }
+      }
+      if (transport) {
+        try {
+          await transport.close()
+        } catch (error) {
+          console.error(`[MCP-DEBUG] Error closing test transport:`, error)
+        }
       }
     }
   }
@@ -470,6 +553,109 @@ class MCPService {
     } catch (error) {
       throw new Error(`Failed to send notification: ${error instanceof Error ? error.message : String(error)}`)
     }
+  }
+
+  /**
+   * Resolve the full path to a command, handling different platforms and PATH resolution
+   */
+  async resolveCommandPath(command: string): Promise<string> {
+    // If it's already an absolute path, return as-is
+    if (path.isAbsolute(command)) {
+      return command
+    }
+
+    // Get the system PATH
+    const systemPath = process.env.PATH || ''
+    const pathSeparator = process.platform === 'win32' ? ';' : ':'
+    const pathExtensions = process.platform === 'win32' ? ['.exe', '.cmd', '.bat'] : ['']
+
+    // Split PATH and search for the command
+    const pathDirs = systemPath.split(pathSeparator)
+
+    // Add common Node.js paths that might be missing in Electron
+    const additionalPaths = [
+      '/usr/local/bin',
+      '/opt/homebrew/bin',
+      path.join(os.homedir(), '.npm-global', 'bin'),
+      path.join(os.homedir(), 'node_modules', '.bin')
+    ]
+
+    pathDirs.push(...additionalPaths)
+
+    for (const dir of pathDirs) {
+      if (!dir) continue
+
+      for (const ext of pathExtensions) {
+        const fullPath = path.join(dir, command + ext)
+        try {
+          await accessAsync(fullPath, constants.F_OK | constants.X_OK)
+          return fullPath
+        } catch {
+          // Continue searching
+        }
+      }
+    }
+
+    // If not found, check if npx is available and this might be an npm package
+    if (command === 'npx' || command.startsWith('@')) {
+      throw new Error(`npx not found in PATH. Please ensure Node.js is properly installed.`)
+    }
+
+    // Return original command and let the system handle it
+    return command
+  }
+
+  /**
+   * Prepare environment variables for spawning MCP servers
+   */
+  async prepareEnvironment(serverEnv?: Record<string, string>): Promise<Record<string, string>> {
+    // Create a clean environment with only string values
+    const environment: Record<string, string> = {}
+
+    // Copy process.env, filtering out undefined values
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) {
+        environment[key] = value
+      }
+    }
+
+    // Ensure PATH is properly set for finding npm/npx
+    if (!environment.PATH) {
+      environment.PATH = '/usr/local/bin:/usr/bin:/bin'
+    }
+
+    // Add common Node.js paths to PATH if not already present
+    const additionalPaths = [
+      '/usr/local/bin',
+      '/opt/homebrew/bin',
+      path.join(os.homedir(), '.npm-global', 'bin'),
+      path.join(os.homedir(), 'node_modules', '.bin')
+    ]
+
+    const pathSeparator = process.platform === 'win32' ? ';' : ':'
+    const currentPaths = environment.PATH.split(pathSeparator)
+
+    for (const additionalPath of additionalPaths) {
+      if (!currentPaths.includes(additionalPath)) {
+        environment.PATH += pathSeparator + additionalPath
+      }
+    }
+
+    // Add server-specific environment variables
+    if (serverEnv) {
+      Object.assign(environment, serverEnv)
+    }
+
+    return environment
+  }
+
+
+
+  /**
+   * Shutdown all servers (alias for cleanup for backward compatibility)
+   */
+  async shutdown(): Promise<void> {
+    await this.cleanup()
   }
 
   async cleanup(): Promise<void> {
