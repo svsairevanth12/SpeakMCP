@@ -31,4 +31,20 @@ export type Config = {
   transcriptPostProcessingOpenaiModel?: string
   transcriptPostProcessingGroqModel?: string
   transcriptPostProcessingGeminiModel?: string
+
+  // MCP Tool Calling Configuration
+  mcpToolCallingEnabled?: boolean
+  mcpToolCallingShortcut?: string
+  mcpServersConfigPath?: string
+}
+
+export type McpServerConfig = {
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+}
+
+export type McpServersConfig = {
+  mcpServers: Record<string, McpServerConfig>
 }

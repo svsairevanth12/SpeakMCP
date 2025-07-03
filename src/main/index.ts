@@ -46,6 +46,17 @@ app.whenReady().then(() => {
 
   import("./updater").then((res) => res.init()).catch(console.error)
 
+  // Initialize MCP client manager
+  import("./mcp-client").then(({ mcpClientManager }) => {
+    // Auto-connect to MCP servers if enabled
+    const config = require("./config").configStore.get()
+    if (config.mcpToolCallingEnabled) {
+      mcpClientManager.connectToAllServers().catch((error) => {
+        console.error("Failed to auto-connect to MCP servers:", error)
+      })
+    }
+  }).catch(console.error)
+
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
