@@ -29,7 +29,7 @@ export function Component() {
     saveConfigMutation.mutate(newConfig)
   }
 
-  const defaultSystemPrompt = `You are a helpful assistant that can execute tools based on user requests. 
+  const defaultSystemPrompt = `You are a helpful assistant that can execute tools based on user requests.
 
 When the user's request requires using a tool, respond with a JSON object in this format:
 {
@@ -148,9 +148,6 @@ Always respond with valid JSON only.`
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="gemma2-9b-it">Gemma2 9B IT</SelectItem>
-                        <SelectItem value="llama-3.1-70b-versatile">Llama 3.1 70B</SelectItem>
-                        <SelectItem value="llama-3.1-8b-instant">Llama 3.1 8B</SelectItem>
-                        <SelectItem value="mixtral-8x7b-32768">Mixtral 8x7B</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
