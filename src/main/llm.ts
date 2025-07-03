@@ -210,11 +210,13 @@ ${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
 
 IMPORTANT: You must respond with ONLY a valid JSON object. Do not include any explanatory text before or after the JSON.
 
+CRITICAL: When calling tools, you MUST use the EXACT tool name as listed above, including any server prefixes (like "server:tool_name"). Do not modify or shorten the tool names.
+
 When the user's request requires using a tool, respond with this exact JSON format:
 {
   "toolCalls": [
     {
-      "name": "tool_name",
+      "name": "exact_tool_name_from_list_above",
       "arguments": { "param1": "value1", "param2": "value2" }
     }
   ],
@@ -233,7 +235,7 @@ Response:
 {
   "toolCalls": [
     {
-      "name": "create_file",
+      "name": "filesystem:write_file",
       "arguments": { "path": "test.txt", "content": "hello world" }
     }
   ],
