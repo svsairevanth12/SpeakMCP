@@ -2,8 +2,8 @@
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: "app.whispo",
-  productName: "Whispo",
+  appId: "app.speakmcp",
+  productName: "SpeakMCP",
   directories: {
     buildResources: "build",
   },
@@ -18,11 +18,11 @@ module.exports = {
     "!*.{js,cjs,mjs,ts}",
     "!components.json",
     "!.prettierrc",
-    '!whispo-rs/*'
+    '!speakmcp-rs/*'
   ],
   asarUnpack: ["resources/**", "node_modules/**"],
   win: {
-    executableName: "whispo",
+    executableName: "speakmcp",
   },
   nsis: {
     artifactName: "${name}-${version}-setup.${ext}",
@@ -31,7 +31,7 @@ module.exports = {
     createDesktopShortcut: "always",
   },
   mac: {
-    binaries: [`resources/bin/whispo-rs${process.platform === 'darwin' ? '' : '.exe'}`],
+    binaries: [`resources/bin/speakmcp-rs${process.platform === 'darwin' ? '' : '.exe'}`],
     artifactName: "${productName}-${version}-${arch}.${ext}",
     entitlementsInherit: "build/entitlements.mac.plist",
     identity: process.env.CSC_NAME || "Apple Development",
@@ -73,8 +73,8 @@ module.exports = {
   npmRebuild: false,
   publish: {
     provider: "github",
-    owner: "egoist",
-    repo: "whispo",
+    owner: "aj47",
+    repo: "SpeakMCP",
   },
   removePackageScripts: true,
 }

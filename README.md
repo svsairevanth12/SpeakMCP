@@ -1,6 +1,6 @@
-# Whispo
+# SpeakMCP
 
-🎤 **AI-powered dictation tool** - Transform your voice into text with advanced speech recognition and intelligent post-processing.
+🎤 **AI-powered dictation tool with MCP integration** - Transform your voice into text with advanced speech recognition, intelligent post-processing, and Model Context Protocol (MCP) tool integration.
 
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](./LICENSE)
 [![Electron](https://img.shields.io/badge/Electron-31.0.2-47848f.svg)](https://electronjs.org/)
@@ -13,7 +13,7 @@
 
 Currently building for **macOS (Apple Silicon)** and **Windows x64**.
 
-**[📥 Download Latest Release](https://github.com/aj47/whispo/releases/latest)**
+**[📥 Download Latest Release](https://github.com/aj47/SpeakMCP/releases/latest)**
 
 ### Usage
 
@@ -94,8 +94,8 @@ Whispo is built with a modern, multi-process architecture designed for performan
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/aj47/whispo.git
-   cd whispo
+   git clone https://github.com/aj47/SpeakMCP.git
+   cd SpeakMCP
    ```
 
 2. **Install dependencies**
@@ -133,7 +133,7 @@ pnpm lint                  # ESLint
 ### Project Structure
 
 ```
-whispo/
+SpeakMCP/
 ├── src/
 │   ├── main/              # Electron main process
 │   │   ├── tipc.ts        # IPC router and API handlers
@@ -145,7 +145,7 @@ whispo/
 │   │   └── lib/           # Utilities and services
 │   ├── preload/           # Electron preload scripts
 │   └── shared/            # Shared types and constants
-├── whispo-rs/             # Rust binary for system integration
+├── speakmcp-rs/           # Rust binary for system integration
 ├── resources/             # Static resources and Python scripts
 └── docs/                  # Documentation
 ```
@@ -198,7 +198,7 @@ Configure intelligent transcript enhancement:
 ### Google Gemini Setup
 
 1. Get API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Add to Whispo settings under "Providers" → "Gemini"
+2. Add to SpeakMCP settings under "Providers" → "Gemini"
 3. Select appropriate model for post-processing
 
 ## 🚨 Troubleshooting
@@ -207,7 +207,7 @@ Configure intelligent transcript enhancement:
 
 **🎤 Microphone not working**
 - Grant microphone permissions in system settings
-- Check microphone access in Whispo settings
+- Check microphone access in SpeakMCP settings
 - Restart application after granting permissions
 
 **⌨️ Text not inserting**

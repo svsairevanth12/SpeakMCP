@@ -1,4 +1,4 @@
 provider: github
-owner: egoist
-repo: chatkit-desktop
-updaterCacheDirName: desktop-updater-whispo2
+owner: aj47
+repo: SpeakMCP
+updaterCacheDirName: desktop-updater-speakmcp

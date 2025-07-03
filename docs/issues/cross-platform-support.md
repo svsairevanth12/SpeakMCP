@@ -160,8 +160,8 @@ module.exports = {
     ],
     category: 'Utility',
     desktop: {
-      Name: 'Whispo',
-      Comment: 'AI-powered dictation tool',
+      Name: 'SpeakMCP',
+      Comment: 'AI-powered dictation tool with MCP integration',
       Categories: 'Utility;AudioVideo;'
     }
   }
@@ -324,19 +324,19 @@ RUN npm install && npm run build:linux
 ### 2. Installation Methods
 ```bash
 # Snap
-sudo snap install whispo
+sudo snap install speakmcp
 
 # Flatpak
-flatpak install flathub app.whispo.Whispo
+flatpak install flathub app.speakmcp.SpeakMCP
 
 # AppImage
-wget https://github.com/aj47/whispo/releases/latest/download/Whispo-x86_64.AppImage
-chmod +x Whispo-x86_64.AppImage
-./Whispo-x86_64.AppImage
+wget https://github.com/aj47/SpeakMCP/releases/latest/download/SpeakMCP-x86_64.AppImage
+chmod +x SpeakMCP-x86_64.AppImage
+./SpeakMCP-x86_64.AppImage
 
 # Debian/Ubuntu
-wget https://github.com/aj47/whispo/releases/latest/download/whispo_amd64.deb
-sudo dpkg -i whispo_amd64.deb
+wget https://github.com/aj47/SpeakMCP/releases/latest/download/speakmcp_amd64.deb
+sudo dpkg -i speakmcp_amd64.deb
 ```
 
 ## Documentation Requirements
