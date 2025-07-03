@@ -32,12 +32,7 @@ export const useConfigQuery = () => useQuery({
   },
 })
 
-export const useIsMacSiliconQuery = () => useQuery({
-  queryKey: ["is-mac-silicon"],
-  queryFn: async () => {
-    return tipcClient.isMacSilicon()
-  },
-})
+
 
 export const useSaveConfigMutation = () => useMutation({
   mutationFn: tipcClient.saveConfig,
