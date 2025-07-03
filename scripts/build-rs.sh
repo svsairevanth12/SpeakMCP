@@ -2,11 +2,11 @@
 
 mkdir -p resources/bin
 
-cd whispo-rs
+cd speakmcp-rs
 
 cargo build -r
 
-cp target/release/whispo-rs ../resources/bin/whispo-rs
+cp target/release/speakmcp-rs ../resources/bin/speakmcp-rs
 
 cd ..
 

@@ -1,12 +1,12 @@
-# 📊 Whispo Project Analysis
+# 📊 SpeakMCP Project Analysis
 
-**Analysis Date:** 2025-01-02  
-**Version:** 0.1.7  
-**Analyzer:** Augment Agent  
+**Analysis Date:** 2025-01-02
+**Version:** 0.1.7
+**Analyzer:** Augment Agent
 
 ## 🎯 Project Overview
 
-Whispo is a sophisticated AI-powered dictation tool built with modern web technologies and cross-platform desktop frameworks. It transforms voice input into text using advanced speech recognition and intelligent post-processing.
+SpeakMCP is a sophisticated AI-powered dictation tool with MCP integration built with modern web technologies and cross-platform desktop frameworks. It transforms voice input into text using advanced speech recognition, intelligent post-processing, and Model Context Protocol (MCP) tool integration.
 
 ### Core Value Proposition
 - **Universal Compatibility**: Works with any application that supports text input

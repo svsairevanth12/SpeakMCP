@@ -118,7 +118,7 @@ export const createAppMenu = () => {
         {
           label: "Send Feedback",
           click() {
-            shell.openExternal("https://github.com/egoist/whispo/issues/new")
+            shell.openExternal("https://github.com/aj47/SpeakMCP/issues/new")
           },
         },
       ]),

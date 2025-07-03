@@ -14,7 +14,7 @@ import path from "path"
 const rdevPath = path
   .join(
     __dirname,
-    `../../resources/bin/whispo-rs${process.env.IS_MAC ? "" : ".exe"}`,
+    `../../resources/bin/speakmcp-rs${process.env.IS_MAC ? "" : ".exe"}`,
   )
   .replace("app.asar", "app.asar.unpacked")
 

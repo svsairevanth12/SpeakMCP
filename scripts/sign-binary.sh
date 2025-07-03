@@ -2,7 +2,7 @@
 
 # Script to properly sign the Rust binary with the same certificate as the main app
 
-BINARY_PATH="resources/bin/whispo-rs"
+BINARY_PATH="resources/bin/speakmcp-rs"
 ENTITLEMENTS_PATH="build/entitlements.mac.plist"
 
 if [ ! -f "$BINARY_PATH" ]; then

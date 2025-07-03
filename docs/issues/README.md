@@ -1,6 +1,6 @@
-# 📋 Whispo Issues and Feature Requests
+# 📋 SpeakMCP Issues and Feature Requests
 
-This directory contains detailed issue descriptions and feature requests for the Whispo project. Each issue is documented with comprehensive requirements, technical implementation details, and acceptance criteria.
+This directory contains detailed issue descriptions and feature requests for the SpeakMCP project. Each issue is documented with comprehensive requirements, technical implementation details, and acceptance criteria.
 
 ## 🚀 High Priority Issues
 

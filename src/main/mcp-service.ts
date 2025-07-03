@@ -166,7 +166,7 @@ class MCPService {
     })
 
     const client = new Client({
-      name: "whispo-mcp-client",
+      name: "speakmcp-mcp-client",
       version: "1.0.0"
     }, {
       capabilities: {}
@@ -371,7 +371,7 @@ class MCPService {
       })
 
       client = new Client({
-        name: "whispo-mcp-test-client",
+        name: "speakmcp-mcp-test-client",
         version: "1.0.0"
       }, {
         capabilities: {}
