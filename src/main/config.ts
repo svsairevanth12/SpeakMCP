@@ -10,10 +10,15 @@ export const recordingsFolder = path.join(dataFolder, "recordings")
 export const configPath = path.join(dataFolder, "config.json")
 
 const getConfig = () => {
+  const defaultConfig: Partial<Config> = {
+    mcpToolsShortcut: "hold-ctrl-alt",
+  }
+
   try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8")) as Config
+    const savedConfig = JSON.parse(fs.readFileSync(configPath, "utf8")) as Config
+    return { ...defaultConfig, ...savedConfig }
   } catch {
-    return {}
+    return defaultConfig
   }
 }
 

@@ -1,8 +1,8 @@
 # 🧠 Make Transcript Post-Processing LLM Model Configurable
 
-**Status:** Proposed  
-**Priority:** Medium  
-**Labels:** enhancement, configuration, llm, user-experience  
+**Status:** Proposed
+**Priority:** Medium
+**Labels:** enhancement, configuration, llm, user-experience
 
 ## Overview
 
@@ -12,7 +12,7 @@ Make the transcript post-processing LLM model configurable through the user inte
 
 Currently, the LLM models used for transcript post-processing are hard-coded in the application:
 - OpenAI: `gpt-4o-mini` (default)
-- Groq: `gemma2-9b-it` (default)  
+- Groq: `gemma2-9b-it` (default)
 - Gemini: `gemini-1.5-flash-002` (default)
 
 Users should be able to choose from available models based on their needs for speed, quality, and cost.
@@ -51,11 +51,8 @@ The configuration types exist in `src/shared/types.ts` but the UI doesn't expose
 - [ ] `gpt-3.5-turbo` - Faster, lower cost, good quality
 - [ ] `gpt-4-turbo` - High quality, moderate speed
 
-#### Groq Models  
+#### Groq Models
 - [ ] `gemma2-9b-it` - Balanced performance (current default)
-- [ ] `llama-3.1-70b-versatile` - Highest quality
-- [ ] `llama-3.1-8b-instant` - Fastest response
-- [ ] `mixtral-8x7b-32768` - Large context window
 
 #### Gemini Models
 - [ ] `gemini-1.5-flash` - Fast and efficient (current default)
@@ -101,7 +98,7 @@ interface ModelInfo {
 The types already exist in `src/shared/types.ts`:
 ```typescript
 transcriptPostProcessingOpenaiModel?: string
-transcriptPostProcessingGroqModel?: string  
+transcriptPostProcessingGroqModel?: string
 transcriptPostProcessingGeminiModel?: string
 ```
 

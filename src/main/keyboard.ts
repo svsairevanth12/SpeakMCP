@@ -1,6 +1,7 @@
 import {
   getWindowRendererHandlers,
   showPanelWindowAndStartRecording,
+  showPanelWindowAndStartMcpRecording,
   stopRecordingAndHidePanelWindow,
   WINDOWS,
 } from "./window"
@@ -89,6 +90,11 @@ export function listenToKeyboardEvents() {
   let startRecordingTimer: NodeJS.Timeout | undefined
   let isPressedCtrlKey = false
 
+  // MCP tool calling state
+  let isHoldingCtrlAltKey = false
+  let startMcpRecordingTimer: NodeJS.Timeout | undefined
+  let isPressedCtrlAltKey = false
+
   if (process.env.IS_MAC) {
     if (!systemPreferences.isTrustedAccessibilityClient(false)) {
       return
@@ -102,13 +108,29 @@ export function listenToKeyboardEvents() {
     }
   }
 
+  const cancelMcpRecordingTimer = () => {
+    if (startMcpRecordingTimer) {
+      clearTimeout(startMcpRecordingTimer)
+      startMcpRecordingTimer = undefined
+    }
+  }
+
   const handleEvent = (e: RdevEvent) => {
+    console.log(`[MCP-DEBUG] Key event: ${e.event_type} - ${e.data.key}`)
+
     if (e.event_type === "KeyPress") {
       if (e.data.key === "ControlLeft") {
         isPressedCtrlKey = true
+        console.log(`[MCP-DEBUG] ControlLeft pressed, isPressedCtrlKey: ${isPressedCtrlKey}`)
+      }
+
+      if (e.data.key === "Alt") {
+        isPressedCtrlAltKey = isPressedCtrlKey && true
+        console.log(`[MCP-DEBUG] Alt pressed, isPressedCtrlKey: ${isPressedCtrlKey}, isPressedCtrlAltKey: ${isPressedCtrlAltKey}`)
       }
 
       if (e.data.key === "Escape" && state.isRecording) {
+        console.log(`[MCP-DEBUG] Escape pressed while recording, stopping recording`)
         const win = WINDOWS.get("panel")
         if (win) {
           stopRecordingAndHidePanelWindow()
@@ -117,7 +139,20 @@ export function listenToKeyboardEvents() {
         return
       }
 
-      if (configStore.get().shortcut === "ctrl-slash") {
+      // Handle MCP tool calling shortcuts
+      const config = configStore.get()
+      console.log(`[MCP-DEBUG] Config check - mcpToolsEnabled: ${config.mcpToolsEnabled}, mcpToolsShortcut: ${config.mcpToolsShortcut}`)
+
+      if (config.mcpToolsEnabled && config.mcpToolsShortcut === "ctrl-alt-slash") {
+        console.log(`[MCP-DEBUG] Checking ctrl-alt-slash shortcut - key: ${e.data.key}, isPressedCtrlKey: ${isPressedCtrlKey}, isPressedCtrlAltKey: ${isPressedCtrlAltKey}`)
+        if (e.data.key === "Slash" && isPressedCtrlKey && isPressedCtrlAltKey) {
+          console.log(`[MCP-DEBUG] ✅ Ctrl+Alt+Slash detected! Triggering MCP recording`)
+          getWindowRendererHandlers("panel")?.startOrFinishMcpRecording.send()
+          return
+        }
+      }
+
+      if (config.shortcut === "ctrl-slash") {
         if (e.data.key === "Slash" && isPressedCtrlKey) {
           getWindowRendererHandlers("panel")?.startOrFinishRecording.send()
         }
@@ -142,28 +177,71 @@ export function listenToKeyboardEvents() {
 
             showPanelWindowAndStartRecording()
           }, 800)
+        } else if (e.data.key === "Alt" && isPressedCtrlKey && config.mcpToolsEnabled && config.mcpToolsShortcut === "hold-ctrl-alt") {
+          console.log(`[MCP-DEBUG] Hold-ctrl-alt shortcut detected - Alt pressed while ControlLeft held`)
+
+          if (hasRecentKeyPress()) {
+            console.log("[MCP-DEBUG] Ignoring ctrl+alt because other keys are pressed", [
+              ...keysPressed.keys(),
+            ])
+            return
+          }
+
+          if (startMcpRecordingTimer) {
+            console.log("[MCP-DEBUG] MCP recording timer already started, ignoring")
+            return
+          }
+
+          // Cancel the regular recording timer since we're starting MCP mode
+          console.log("[MCP-DEBUG] Cancelling regular recording timer for MCP mode")
+          cancelRecordingTimer()
+
+          console.log("[MCP-DEBUG] Starting MCP recording timer (800ms)")
+          startMcpRecordingTimer = setTimeout(() => {
+            isHoldingCtrlAltKey = true
+            console.log(`[MCP-DEBUG] ✅ MCP recording timer triggered! isHoldingCtrlAltKey set to: ${isHoldingCtrlAltKey}`)
+
+            console.log("[MCP-DEBUG] Starting MCP recording")
+
+            showPanelWindowAndStartMcpRecording()
+          }, 800)
         } else {
           keysPressed.set(e.data.key, e.time.secs_since_epoch)
           cancelRecordingTimer()
+          cancelMcpRecordingTimer()
 
           // when holding ctrl key, pressing any other key will stop recording
           if (isHoldingCtrlKey) {
             stopRecordingAndHidePanelWindow()
           }
 
+          // when holding ctrl+alt key, pressing any other key will stop MCP recording
+          if (isHoldingCtrlAltKey) {
+            stopRecordingAndHidePanelWindow()
+          }
+
           isHoldingCtrlKey = false
+          isHoldingCtrlAltKey = false
         }
       }
     } else if (e.event_type === "KeyRelease") {
+      console.log(`[MCP-DEBUG] Key release: ${e.data.key}`)
       keysPressed.delete(e.data.key)
 
       if (e.data.key === "ControlLeft") {
         isPressedCtrlKey = false
+        console.log(`[MCP-DEBUG] ControlLeft released, isPressedCtrlKey: ${isPressedCtrlKey}`)
+      }
+
+      if (e.data.key === "Alt") {
+        isPressedCtrlAltKey = false
+        console.log(`[MCP-DEBUG] Alt released, isPressedCtrlAltKey: ${isPressedCtrlAltKey}`)
       }
 
       if (configStore.get().shortcut === "ctrl-slash") return
 
       cancelRecordingTimer()
+      cancelMcpRecordingTimer()
 
       if (e.data.key === "ControlLeft") {
         console.log("release ctrl")
@@ -174,6 +252,22 @@ export function listenToKeyboardEvents() {
         }
 
         isHoldingCtrlKey = false
+      }
+
+      if (e.data.key === "Alt") {
+        console.log(`[MCP-DEBUG] release alt - isHoldingCtrlAltKey: ${isHoldingCtrlAltKey}`)
+        if (isHoldingCtrlAltKey) {
+          console.log("[MCP-DEBUG] ✅ Finishing MCP recording")
+          const panelHandlers = getWindowRendererHandlers("panel")
+          console.log(`[MCP-DEBUG] Panel handlers available: ${!!panelHandlers}`)
+          panelHandlers?.finishMcpRecording.send()
+          console.log("[MCP-DEBUG] finishMcpRecording.send() called")
+        } else {
+          console.log("[MCP-DEBUG] ❌ Stopping recording and hiding panel (not holding)")
+          stopRecordingAndHidePanelWindow()
+        }
+
+        isHoldingCtrlAltKey = false
       }
     }
   }
