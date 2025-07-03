@@ -1,8 +1,8 @@
 # 🧪 Testing Framework Improvements and Coverage Expansion
 
-**Status:** Proposed  
-**Priority:** Medium  
-**Labels:** testing, quality, automation, ci-cd  
+**Status:** Proposed
+**Priority:** Medium
+**Labels:** testing, quality, automation, ci-cd
 
 ## Overview
 
@@ -11,7 +11,6 @@ Implement comprehensive testing framework to improve code quality, reduce bugs, 
 ## Current Testing State
 
 ### Existing Tests
-- [ ] Lightning Whisper MLX integration test (`scripts/test-lightning-whisper-integration.js`)
 - [ ] Basic TypeScript type checking
 - [ ] ESLint code quality checks
 
@@ -30,7 +29,6 @@ Implement comprehensive testing framework to improve code quality, reduce bugs, 
 - [ ] `src/main/llm.ts` - LLM post-processing logic
 - [ ] `src/main/config.ts` - Configuration management
 - [ ] `src/main/keyboard.ts` - Keyboard event handling
-- [ ] `src/main/lightning-whisper-service.ts` - Local transcription
 - [ ] `src/main/tipc.ts` - IPC communication
 
 #### UI Component Testing
@@ -159,7 +157,7 @@ describe('ConfigStore', () => {
   it('should save and load configuration', () => {
     const testConfig = { openaiApiKey: 'test-key' }
     configStore.save(testConfig)
-    
+
     const loadedConfig = configStore.get()
     expect(loadedConfig.openaiApiKey).toBe('test-key')
   })
@@ -180,7 +178,7 @@ describe('LLM Integration', () => {
   it('should process transcript with OpenAI', async () => {
     const transcript = 'hello world'
     const result = await postProcessTranscript(transcript)
-    
+
     expect(result).toBeDefined()
     expect(typeof result).toBe('string')
   })
@@ -198,12 +196,12 @@ import { test, expect } from './setup'
 
 test('complete recording workflow', async ({ electronApp }) => {
   const window = await electronApp.firstWindow()
-  
+
   // Test recording flow
   await window.keyboard.down('Control')
   await window.waitForTimeout(1000)
   await window.keyboard.up('Control')
-  
+
   // Verify transcription appears
   await expect(window.locator('[data-testid="transcript"]')).toBeVisible()
 })
@@ -242,12 +240,12 @@ export const createTestAudioBuffer = (duration: number = 1000): ArrayBuffer => {
   const samples = Math.floor(sampleRate * duration / 1000)
   const buffer = new ArrayBuffer(samples * 2)
   const view = new Int16Array(buffer)
-  
+
   // Generate test audio data
   for (let i = 0; i < samples; i++) {
     view[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate) * 32767
   }
-  
+
   return buffer
 }
 ```
@@ -261,8 +259,7 @@ src/
 │   ├── __tests__/
 │   │   ├── config.test.ts
 │   │   ├── llm.test.ts
-│   │   ├── keyboard.test.ts
-│   │   └── lightning-whisper.test.ts
+│   │   └── keyboard.test.ts
 │   └── ...
 ├── renderer/src/
 │   ├── __tests__/
@@ -296,25 +293,25 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
           cache: 'pnpm'
-      
+
       - name: Install dependencies
         run: pnpm install
-      
+
       - name: Run unit tests
         run: pnpm test:unit
-      
+
       - name: Run integration tests
         run: pnpm test:integration
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      
+
       - name: Run E2E tests
         run: pnpm test:e2e
 ```

@@ -36,8 +36,7 @@ https://github.com/user-attachments/assets/2344a817-f36c-42b0-9ebc-cdd6e926b7a0
 - **Smart Shortcuts**: Configurable keyboard shortcuts (`Ctrl+Hold` or `Ctrl+/`)
 
 ### 🤖 AI-Powered Transcription
-- **Multiple Providers**: OpenAI Whisper, Groq, and Lightning Whisper MLX
-- **Local Processing**: Lightning Whisper MLX for Mac Silicon (no internet required)
+- **Multiple Providers**: OpenAI Whisper and Groq
 - **Cloud APIs**: OpenAI and Groq for high-accuracy transcription
 - **Custom Endpoints**: Support for self-hosted APIs
 - **Fallback System**: Automatic fallback between providers
@@ -60,14 +59,14 @@ Whispo is built with a modern, multi-process architecture designed for performan
 
 ### System Overview
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Electron      │    │   Rust Binary    │    │  Python Script  │
-│   Main Process  │◄──►│   whispo-rs      │    │  Lightning      │
-│                 │    │   (Keyboard &    │    │  Whisper MLX    │
-│                 │    │   Text Input)    │    │                 │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                                               │
-         ▼                                               ▼
+┌─────────────────┐    ┌──────────────────┐
+│   Electron      │    │   Rust Binary    │
+│   Main Process  │◄──►│   whispo-rs      │
+│                 │    │   (Keyboard &    │
+│                 │    │   Text Input)    │
+└─────────────────┘    └──────────────────┘
+         │
+         ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   React UI      │    │   External APIs  │    │   System APIs   │
 │   (Renderer)    │    │   OpenAI, Groq   │    │   Accessibility │
@@ -89,7 +88,6 @@ Whispo is built with a modern, multi-process architecture designed for performan
 
 - **Node.js** 18+ with **pnpm** package manager
 - **Rust** toolchain for building the native binary
-- **Python 3.7+** for Lightning Whisper MLX (Mac Silicon only)
 - **Xcode Command Line Tools** (macOS) or **Visual Studio Build Tools** (Windows)
 
 ### Setup
@@ -130,7 +128,6 @@ pnpm build:linux           # Build for Linux
 # Testing
 pnpm typecheck             # Type checking
 pnpm lint                  # ESLint
-pnpm test-lightning-whisper # Test Lightning Whisper integration
 ```
 
 ### Project Structure
@@ -141,8 +138,7 @@ whispo/
 │   ├── main/              # Electron main process
 │   │   ├── tipc.ts        # IPC router and API handlers
 │   │   ├── keyboard.ts    # Keyboard event handling
-│   │   ├── llm.ts         # LLM post-processing
-│   │   └── lightning-whisper-service.ts
+│   │   └── llm.ts         # LLM post-processing
 │   ├── renderer/src/      # React UI
 │   │   ├── pages/         # Application pages
 │   │   ├── components/    # Reusable components
@@ -160,7 +156,6 @@ whispo/
 
 | Provider | Platform | Speed | Quality | Privacy | Cost |
 |----------|----------|-------|---------|---------|------|
-| **Lightning Whisper MLX** | Mac Silicon | ⚡ Very Fast | 🎯 High | 🔒 Local | 💰 Free |
 | **OpenAI Whisper** | All | 🐌 Moderate | 🎯 High | ☁️ Cloud | 💰 Paid |
 | **Groq** | All | ⚡ Fast | 🎯 High | ☁️ Cloud | 💰 Paid |
 
@@ -184,26 +179,7 @@ Configure intelligent transcript enhancement:
 - **Ctrl + /**: Press once to start, press again to stop
 - **Escape**: Cancel current recording
 
-### Lightning Whisper MLX (Mac Silicon)
 
-For Mac Silicon users, Lightning Whisper MLX provides ultra-fast local transcription:
-
-**Features:**
-- 🚀 10x faster than Whisper CPP
-- 🔒 Complete privacy (no internet required)
-- 🎛️ Configurable models and quantization
-- 📦 Automatic dependency management
-
-**Setup:**
-1. Select "Lightning Whisper MLX (Local)" in settings
-2. Click "Check Dependencies" to verify installation
-3. Use "Install" button if dependencies are missing
-4. Configure model, batch size, and quantization options
-
-**Recommended Settings:**
-- **Model**: `distil-medium.en` (balanced speed/quality)
-- **Batch Size**: `12` (optimal for most M1/M2/M3 chips)
-- **Quantization**: `4bit` (faster processing, minimal quality loss)
 
 ## 🔧 API Configuration
 
@@ -239,10 +215,7 @@ For Mac Silicon users, Lightning Whisper MLX provides ultra-fast local transcrip
 - Run as administrator (Windows)
 - Check target application supports text input
 
-**🤖 Lightning Whisper MLX issues**
-- Ensure you're on Mac Silicon (M1/M2/M3)
-- Install Python dependencies: `pip install lightning-whisper-mlx`
-- Check Python 3 is available in PATH
+
 
 **🌐 API errors**
 - Verify API keys are correct
@@ -250,11 +223,6 @@ For Mac Silicon users, Lightning Whisper MLX provides ultra-fast local transcrip
 - Validate custom base URLs if configured
 
 ### Performance Optimization
-
-**For Lightning Whisper MLX:**
-- Reduce batch size if experiencing memory issues
-- Use smaller models for faster processing
-- Enable quantization for speed improvements
 
 **For Cloud APIs:**
 - Use Groq for fastest cloud transcription
@@ -289,7 +257,6 @@ This project is licensed under the [AGPL-3.0 License](./LICENSE).
 
 ## 🙏 Acknowledgments
 
-- [Lightning Whisper MLX](https://github.com/aj47/lightning-whisper-mlx) for ultra-fast local transcription
 - [OpenAI](https://openai.com/) for Whisper speech recognition
 - [Electron](https://electronjs.org/) for cross-platform desktop framework
 - [React](https://reactjs.org/) for the user interface

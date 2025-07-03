@@ -160,36 +160,7 @@ export function Component() {
           </Control>
         )}
 
-        {sttProviderId === "lightning-whisper-mlx" && (
-          <>
-            <Control label="Dependencies" className="px-3">
-              <div className="flex items-center gap-2">
-                {depsInstalled === null ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={checkDependencies}
-                    disabled={isCheckingDeps}
-                  >
-                    {isCheckingDeps ? "Checking..." : "Check Dependencies"}
-                  </Button>
-                ) : depsInstalled ? (
-                  <span className="text-green-600 text-sm">✓ Dependencies installed</span>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-red-600 text-sm">✗ Dependencies not installed</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={installDependencies}
-                      disabled={isInstallingDeps}
-                    >
-                      {isInstallingDeps ? "Installing..." : "Install"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Control>
+
 
       </ControlGroup>
 
