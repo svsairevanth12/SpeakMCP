@@ -29,3 +29,8 @@ temp/
 *.ckpt
 
 .aider
+
+# Environment files with secrets
+.env.local
+.env.production
+.env
