@@ -21,7 +21,7 @@ export default defineConfig({
         'coverage/',
         'scripts/',
         'resources/',
-        'speakmcp-rs/'
+        'whispo-rs/'
       ]
     }
   },
