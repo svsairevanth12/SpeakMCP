@@ -20,9 +20,10 @@ module.exports = {
     "!.prettierrc",
     "!speakmcp-rs/*",
   ],
-  asarUnpack: ["resources/**", "node_modules/**"],
+  asarUnpack: ["resources/**", "node_modules/**", "build/**"],
   win: {
     executableName: "speakmcp",
+    icon: "build/icons/icon.ico",
     target: [
       {
         target: "nsis",
@@ -51,6 +52,20 @@ module.exports = {
     shortcutName: "${productName}",
     uninstallDisplayName: "${productName}",
     createDesktopShortcut: "always",
+    createStartMenuShortcut: true,
+    oneClick: false,
+    allowElevation: true,
+    allowToChangeInstallationDirectory: true,
+
+    deleteAppDataOnUninstall: false,
+    runAfterFinish: true,
+    menuCategory: "Productivity",
+    warningsAsErrors: false,
+    perMachine: false,
+    packElevateHelper: true,
+    removeDefaultUninstallWelcomePage: false,
+    license: "LICENSE",
+    guid: "12345678-1234-1234-1234-123456789012"
   },
   mac: {
     binaries: [

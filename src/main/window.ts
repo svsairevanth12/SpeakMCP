@@ -6,6 +6,7 @@ import {
   app,
 } from "electron"
 import path from "path"
+import { is } from "@electron-toolkit/utils"
 import { getRendererHandlers } from "@egoist/tipc/main"
 import {
   makeKeyWindow,
@@ -39,6 +40,9 @@ function createBaseWindow({
     height: 670,
     show: false,
     autoHideMenuBar: true,
+    icon: is.dev
+      ? path.join(__dirname, "../../resources/icon.png")
+      : path.join(process.resourcesPath, "icon.png"),
     ...windowOptions,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.mjs"),

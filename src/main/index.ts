@@ -29,6 +29,11 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId(process.env.APP_ID)
 
+  // Set app icon for Windows
+  if (process.platform === 'win32') {
+    app.setAppUserModelId(process.env.APP_ID || 'com.speakmcp.app')
+  }
+
   const accessibilityGranted = isAccessibilityGranted()
 
   Menu.setApplicationMenu(createAppMenu())
